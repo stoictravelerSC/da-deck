@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Decision Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hanken+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<script src="telegram-web-app.js"></script>
+<style>
+/* Layout: one-screen app — header · DA tabs · a stack of index cards · round thumb controls.
+   ≥900px adds a "up next" rail (left) and an "answered" ledger (right) so a mouse user sees the whole run. */
+:root {
+  --bg: #e9ecf1; --surface: #ffffff; --sunk: #f3f5f8; --ink: #14171c; --muted: #5a6271; --faint: #8b93a1; --line: #d8dde5;
+  --accent: #1f3a8a;
+  --yes: #15803d; --no: #c2321f; --later: #b7620b; --more: #3a5fb0;
+  --ada: #b4532a; --coach: #0f766e; --sosh: #b0256a; --lib: #6b3fc6; --finn: #2f7d32; --tek: #2b56c6;
+  --shadow: 0 1px 2px rgba(20,23,28,.06), 0 8px 24px rgba(20,23,28,.10);
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Hanken Grotesk", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 18px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1115; --surface: #1a1d23; --sunk: #14161b; --ink: #eef1f5; --muted: #a3abb8; --faint: #6f7785; --line: #2b3039;
+  --accent: #9db4ff; --yes: #3fbf6a; --no: #f0644f; --later: #f0a33b; --more: #7e9df0;
+  --ada: #e08a5f; --coach: #3cbfb2; --sosh: #ec6aa7; --lib: #a88bf0; --finn: #6cc070; --tek: #7d9ef5;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f1115; --surface: #1a1d23; --sunk: #14161b; --ink: #eef1f5; --muted: #a3abb8; --faint: #6f7785; --line: #2b3039;
+  --accent: #9db4ff; --yes: #3fbf6a; --no: #f0644f; --later: #f0a33b; --more: #7e9df0;
+  --ada: #e08a5f; --coach: #3cbfb2; --sosh: #ec6aa7; --lib: #a88bf0; --finn: #6cc070; --tek: #7d9ef5;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--f-body); -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; }
+button:focus-visible, [tabindex]:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.app { height: 100%; display: flex; flex-direction: column; max-width: 1240px; margin: 0 auto;
+  padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px); }
+
+/* header */
+.top { display: flex; align-items: center; gap: 12px; padding-block: 14px 8px; }
+.brand { min-width: 0; flex: 1; }
+.brand h1 { font: 700 20px/1.1 var(--f-display); letter-spacing: -.01em; margin: 0; }
+.brand .sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tally { display: none; font: 500 12px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.tally b { color: var(--ink); font-weight: 500; }
+.done { border: 0; border-radius: 999px; padding: 9px 16px; background: var(--ink); color: var(--bg); font-weight: 700; cursor: pointer; white-space: nowrap; }
+.done:disabled { opacity: .35; cursor: default; }
+.banner { margin: 2px 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--sunk); border: 1px dashed var(--line); color: var(--muted); font-size: 12.5px; }
+.banner b { color: var(--ink); }
+
+/* tabs */
+.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-block: 4px 10px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px 6px 8px;
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13.5px; }
+.tab .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font: 700 10px var(--f-display); color: #fff; background: var(--c, var(--accent)); }
+.tab .n { font: 500 11.5px var(--f-mono); color: var(--faint); }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tab[aria-selected="true"] .n { color: inherit; opacity: .7; }
+
+/* main stage */
+.app > * { min-width: 0; }
+.main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.rail { display: none; }
+.stage { position: relative; min-height: 0; display: grid; place-items: center; }
+.stack { position: relative; width: min(100%, 460px); height: min(100%, 580px); }
+.card { position: absolute; inset: 0; background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow);
+  border: 1px solid var(--line); padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 12px;
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; will-change: transform; overflow: hidden; }
+.card.behind { pointer-events: none; }
+.card.dragging { cursor: grabbing; transition: none !important; }
+.card.settle { transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
+.card .band { position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c); }
+
+.meta { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.who { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--ink); }
+.mono { width: 26px; height: 26px; border-radius: 8px; background: var(--c); color: #fff; display: grid; place-items: center; font: 700 13px var(--f-display); }
+.kind { text-transform: uppercase; letter-spacing: .07em; font-size: 10.5px; color: var(--faint); }
+.meta .sp { flex: 1; }
+.pscore { font: 500 12px var(--f-mono); font-variant-numeric: tabular-nums; color: var(--ink); background: var(--sunk); border: 1px solid var(--line); padding: 2px 7px; border-radius: 7px; }
+.pscore small { color: var(--faint); font-size: 10.5px; }
+
+.title { font: 700 clamp(19px, 5.2vw, 23px)/1.18 var(--f-display); letter-spacing: -.012em; margin: 0; text-wrap: balance; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip.hot { color: var(--no); border-color: color-mix(in srgb, var(--no) 40%, var(--line)); background: color-mix(in srgb, var(--no) 8%, var(--surface)); font-weight: 700; }
+.chip.warm { color: var(--later); border-color: color-mix(in srgb, var(--later) 40%, var(--line)); }
+.why, .how { overflow-wrap: anywhere; }
+.how { font-size: 13.5px; color: var(--muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.why { color: var(--ink); font-size: 15px; margin: 0; display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
+.why .lbl, .skip .lbl, .prop .lbl, .how .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); display: block; margin-bottom: 2px; }
+.prop { border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); font-size: 14px; }
+.skip { font-size: 13px; color: var(--muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.fill { flex: 1; }
+.hints { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; font-size: 12px; color: var(--faint); border-top: 1px solid var(--line); padding-top: 10px; }
+.hints .l { color: var(--no); } .hints .r { color: var(--yes); text-align: right; } .hints .u { color: var(--later); text-align: center; }
+.hints b { font-weight: 700; }
+
+.stamp { position: absolute; top: 22px; padding: 6px 12px; border: 3px solid currentColor; border-radius: 10px; font: 700 20px var(--f-display);
+  text-transform: uppercase; letter-spacing: .06em; opacity: 0; pointer-events: none; background: var(--surface); }
+.stamp.s-y { right: 18px; color: var(--yes); transform: rotate(8deg); }
+.stamp.s-n { left: 18px; color: var(--no); transform: rotate(-8deg); }
+.stamp.s-l { left: 50%; top: auto; bottom: 64px; transform: translateX(-50%); color: var(--later); }
+.stamp.s-m { left: 50%; top: 40%; transform: translateX(-50%); color: var(--more); }
+
+.empty { text-align: center; padding: 28px; max-width: 360px; }
+.empty h2 { font: 700 24px var(--f-display); margin: 8px 0; }
+.empty p { color: var(--muted); margin: 0 0 16px; }
+.empty .big { font: 700 44px var(--f-display); color: var(--yes); }
+
+/* controls */
+.controls { display: flex; justify-content: center; align-items: center; gap: 14px; padding-block: 12px 14px; }
+.fab { border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); border-radius: 50%; width: 52px; height: 52px; display: grid; place-items: center; cursor: pointer; position: relative; }
+.fab svg { width: 24px; height: 24px; }
+.fab.big { width: 64px; height: 64px; } .fab.big svg { width: 30px; height: 30px; }
+.fab.small { width: 42px; height: 42px; } .fab.small svg { width: 19px; height: 19px; }
+.fab.no { color: var(--no); } .fab.yes { color: var(--yes); } .fab.later { color: var(--later); } .fab.more { color: var(--more); } .fab.undo { color: var(--muted); }
+.fab:active { transform: scale(.94); }
+.fab:disabled { opacity: .35; cursor: default; }
+.fab .tip { position: absolute; bottom: -18px; font-size: 10.5px; color: var(--faint); white-space: nowrap; }
+
+/* details sheet */
+.scrim { position: fixed; inset: 0; background: rgba(10,12,16,.45); z-index: 20; display: grid; align-items: end; justify-items: center; }
+.sheet { width: min(100%, 560px); max-height: 88%; overflow: auto; background: var(--surface); border-radius: 22px 22px 0 0;
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow); }
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 4px auto 12px; }
+.sheet h3 { font: 700 21px/1.2 var(--f-display); margin: 6px 0 10px; text-wrap: balance; }
+.sheet .field { margin: 12px 0; }
+.sheet .field .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); }
+.sheet .field div { margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sheet code, .sheet .idline { font: 500 12px var(--f-mono); color: var(--muted); overflow-wrap: anywhere; }
+.choices { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 14px 0 8px; }
+.choice.y, .choice.n { grid-column: span 3; } .choice.l { grid-column: span 2; font-size: 14px; }
+.choice { border: 1px solid var(--line); background: var(--sunk); border-radius: 12px; padding: 11px 10px; cursor: pointer; font-weight: 700; text-align: center; }
+.choice.y { color: var(--yes); } .choice.n { color: var(--no); } .choice.l { color: var(--later); }
+textarea { width: 100%; min-height: 76px; border-radius: 12px; border: 1px solid var(--line); background: var(--sunk); color: var(--ink); padding: 10px 12px; font: 15px/1.4 var(--f-body); resize: vertical; }
+.row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 14px; cursor: pointer; font-weight: 700; }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.payload { font: 500 11.5px/1.5 var(--f-mono); background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg);
+  padding: 9px 14px; border-radius: 10px; font-size: 13.5px; z-index: 30; max-width: calc(100% - 32px); }
+
+/* wide screens: up-next rail + answered ledger */
+@media (min-width: 600px) { .tally { display: block; } }
+@media (min-width: 900px) {
+  .main { grid-template-columns: 250px minmax(0, 1fr) 270px; }
+  .card .how { -webkit-line-clamp: 4; }
+  .rail { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+  .rail h4 { margin: 4px 2px; font: 700 12px var(--f-display); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+  .rail ol { list-style: none; margin: 0; padding: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+  .rail li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; font-size: 13px; display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: start; }
+  .rail li .mono { width: 20px; height: 20px; border-radius: 6px; font-size: 10.5px; }
+  .rail li .tx { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rail li .v { font: 500 11px var(--f-mono); color: var(--faint); }
+  .rail li .v.y { color: var(--yes); } .rail li .v.n { color: var(--no); } .rail li .v.l { color: var(--later); } .rail li .v.t { color: var(--more); }
+  .rail .none { color: var(--faint); font-size: 13px; padding: 4px 2px; }
+  .stack { height: min(100%, 600px); }
+}
+@media (prefers-reduced-motion: reduce) { .card.settle { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand"><h1 id="deckName">Decision Deck</h1><div class="sub" id="sub">Loading…</div></div>
+    <div class="tally" id="tally"></div>
+    <button class="done" id="doneBtn" type="button" disabled>Done</button>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Agents"></nav>
+  <main class="main">
+    <aside class="rail" aria-label="Up next"><h4>Up next</h4><ol id="nextList"></ol></aside>
+    <section class="stage" aria-live="polite"><div class="stack" id="stack"></div></section>
+    <aside class="rail" aria-label="Answered"><h4>Answered</h4><ol id="ansList"></ol></aside>
+  </main>
+  <footer class="controls" id="controls">
+    <button class="fab small undo" id="bUndo" type="button" aria-label="Undo last answer (U)" title="Undo (U)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="fab big no" id="bNo" type="button" aria-label="Swipe left" title="← key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button class="fab later" id="bLater" type="button" aria-label="Later (swipe up)" title="↑ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></button>
+    <button class="fab more" id="bMore" type="button" aria-label="More info (swipe down or tap)" title="↓ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
+    <button class="fab big yes" id="bYes" type="button" aria-label="Swipe right" title="→ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5L19.5 7"/></svg></button>
+  </footer>
+</div>
+<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+"use strict";
+/* Decision Deck — Telegram Mini App (DA attention redesign, D-deck). Data in: URL fragment `d=` (raw-deflate JSON, base64url)
+   built by ~/.claude/scripts/da-deck-snapshot.py — the host never sees it. Data out: Telegram.WebApp.sendData (≤4096 bytes,
+   keyboard-button launches only), envelope {"v":1,"s":ver,"k":deck,"a":[[id,"y"|"n"],[id,"l",days],[id,"t",text]]}.
+   Unsent answers are cached in DeviceStorage (Bot API 9.0+) with a localStorage fallback and re-offered on the next open. */
+const DA = {
+  ada: { name: "Ada", mono: "A", role: "chief of staff" }, coach: { name: "Kay", mono: "K", role: "health coach" },
+  sosh: { name: "Sosh", mono: "S", role: "social" }, lib: { name: "Lib", mono: "L", role: "library" },
+  finn: { name: "Finn", mono: "F", role: "money" }, tek: { name: "Tek", mono: "T", role: "system" } };
+const TAB_ORDER = ["ada", "coach", "sosh", "lib", "finn"];
+const KIND = { todo: "To do", approval: "Approval", installer: "Installer", question: "Question", proposal: "Cleanup proposal" };
+const LABELS = { todo: ["Done", "Drop"], approval: ["Approve", "Reject"], installer: ["Install", "Decline"],
+  question: ["Yes", "No"], proposal: ["Accept", "Keep as is"] };
+const LATER = [[1, "Tomorrow"], [3, "In 3 days"], [7, "Next week"]];
+const MAX_BYTES = 4096;
+
+const tg = window.Telegram && window.Telegram.WebApp;
+const inTg = !!(tg && tg.initData !== undefined && tg.platform && tg.platform !== "unknown");
+const can = v => inTg && typeof tg.isVersionAtLeast === "function" && tg.isVersionAtLeast(v);
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let SNAP = null, MODE = "demo", tab = "all";
+let answers = [];
+let SENT = new Set();          // ids already delivered from this same snapshot (reopened deck)            // [{id, c:"y"|"n"|"l"|"t", v}] in answer order
+const answered = () => new Set(answers.map(a => a.id).concat(Array.from(SENT)));
+
+/* ---------- data in ---------- */
+function hashParam(name) {
+  const h = (location.hash || "").replace(/^#/, "");
+  for (const part of h.split(/[&?]/)) { const i = part.indexOf("="); if (i > 0 && part.slice(0, i) === name) return part.slice(i + 1); }
+  return null;
+}
+function b64u(s) { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+async function decode(d) {
+  const bytes = b64u(d);
+  if (typeof DecompressionStream === "undefined") throw new Error("This Telegram version can't unpack the deck (no DecompressionStream). Update Telegram.");
+  const txt = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+  return JSON.parse(txt);
+}
+function demo() {
+  // FICTIONAL example cards only: this file is published to a public repo, so nothing here may echo a real item.
+  return { v: 1, ver: "demo", gen: new Date().toISOString(), deck: "ada", total: 6, demo: true, items: [
+    { i: "demo-1", d: "finn", k: "todo", t: "Renew the car registration online (example)", w: "The renewal notice arrived last week. It takes about ten minutes with the notice number.", o: "Notice is in the mail tray; the site is linked on the card.", s: "a late fee after the due date", P: 40, I: 4, T: 5, a: 6, dl: new Date(Date.now() + 9 * 864e5).toISOString().slice(0, 10) },
+    { i: "demo-2", d: "ada", k: "todo", t: "Book a dentist cleaning (example)", w: "It has been about seven months. Smallest step: pick a slot online, two minutes.", s: "", P: 28, I: 3.5, T: 3, a: 12 },
+    { i: "demo-3", d: "sosh", k: "question", t: "Invite Sam to Saturday's board-game night?", w: "Sam said they wanted to come to the next one.", P: 18, I: 2, T: 4, a: 2 },
+    { i: "demo-4", d: "lib", k: "todo", t: "Choose where saved articles should go (example)?", w: "Three options; Ada's pick is B, one reading list for everything.", o: "A) separate lists per topic · B) one reading list (REC) · C) decide each time", P: 22.5, I: 3, T: 2.5, a: 4, y: "Yes: B", n: "No" },
+    { i: "demo-5", d: "coach", k: "todo", t: "Take a 20-minute walk after lunch (example)", w: "You asked for a nudge on days with no exercise logged.", P: 24, I: 3, T: 3, a: 1 },
+    { i: "demo-6", d: "ada", k: "proposal", t: "Old: \"Find the spare charger\" (example)", w: "Open for 90 days; you mentioned finding it last month.", pr: "Drop it, already done", P: 8, I: 2, T: 0, a: 90 } ] };
+}
+
+/* ---------- storage (unsent answers) ---------- */
+const skey = () => "deck:" + (SNAP ? SNAP.ver + ":" + (SNAP.deck || "") : "none");
+function saveLocal() {
+  const v = JSON.stringify(answers);
+  if (can("9.0") && tg.DeviceStorage) { try { tg.DeviceStorage.setItem(skey(), v, () => {}); } catch (e) {} }
+  try { localStorage.setItem(skey(), v); } catch (e) {}
+}
+function sentMark() {   // keep the answers, flagged as sent: reopening the same deck shows them as done instead of re-offering them
+  const v = JSON.stringify({ sentAt: new Date().toISOString(), answers });
+  if (can("9.0") && tg.DeviceStorage) { try { tg.DeviceStorage.setItem(skey(), v, () => {}); } catch (e) {} }
+  try { localStorage.setItem(skey(), v); } catch (e) {}
+}
+function loadLocal() {
+  return new Promise(res => {
+    let local = null; try { local = localStorage.getItem(skey()); } catch (e) {}
+    const take = s => { try { const a = JSON.parse(s || "null"); return Array.isArray(a) ? a : (a && Array.isArray(a.answers) ? Object.assign(a.answers.slice(), { sentAt: a.sentAt }) : null); } catch (e) { return null; } };
+    if (can("9.0") && tg.DeviceStorage) {
+      let done = false; const t = setTimeout(() => { if (!done) { done = true; res(take(local)); } }, 800);
+      try { tg.DeviceStorage.getItem(skey(), (err, val) => { if (done) return; done = true; clearTimeout(t); res(take(val) || take(local)); }); }
+      catch (e) { clearTimeout(t); res(take(local)); }
+    } else res(take(local));
+  });
+}
+
+/* ---------- derived views ---------- */
+const items = () => SNAP ? SNAP.items : [];
+const isSystemDeck = () => SNAP && SNAP.deck === "tek";
+function inTab(it) { return tab === "all" ? true : it.d === tab; }
+function queue() { const done = answered(); return items().filter(it => inTab(it) && !done.has(it.i)); }
+function labels(it) { const L = LABELS[it.k] || LABELS.todo; return [it.y || L[0], it.n || L[1]]; }
+function daysTo(iso) { if (!iso) return null; const d = new Date(iso + "T12:00:00"); return Math.round((d - new Date()) / 864e5); }
+function fmtDate(iso) { try { return new Date(iso + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch (e) { return iso; } }
+function ago(iso) { const m = Math.round((Date.now() - new Date(iso)) / 6e4); if (!isFinite(m)) return ""; if (m < 2) return "just now"; if (m < 60) return m + " min ago"; const h = Math.round(m / 60); return h < 36 ? h + " h ago" : Math.round(h / 24) + " d ago"; }
+function verb(a, it) { if (a.c === "y") return labels(it)[0]; if (a.c === "n") return labels(it)[1]; if (a.c === "l") return "Later +" + a.v + "d"; return "Reply"; }
+
+/* ---------- render ---------- */
+function renderTabs() {
+  const T = $("tabs"); const done = answered();
+  const left = d => items().filter(it => (d === "all" || it.d === d) && !done.has(it.i)).length;
+  let defs;
+  if (isSystemDeck()) defs = [["all", "System", "tek"]];
+  else {
+    const present = TAB_ORDER.concat(["tek"]).filter(d => items().some(it => it.d === d));   // mixed decks (cleanup) may hold Tek cards
+    defs = [["all", "All", null]].concat(present.map(d => [d, DA[d].name, d]));
+  }
+  T.innerHTML = defs.map(([k, name, d]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}" style="${d ? `--c:var(--${d})` : ""}">` +
+    (d ? `<span class="dot">${DA[d].mono}</span>` : `<span class="dot" style="--c:var(--ink);color:var(--bg)">★</span>`) +
+    `${esc(name)} <span class="n">${left(k)}</span></button>`).join("");
+  T.querySelectorAll(".tab").forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+}
+function cardHTML(it, pos) {
+  const d = DA[it.d] || DA.ada; const [yl, nl] = labels(it); const dt = daysTo(it.dl);
+  const chips = [];
+  if (it.dl) chips.push(`<span class="chip ${dt != null && dt <= 7 ? "hot" : dt != null && dt <= 30 ? "warm" : ""}">${dt != null && dt < 0 ? "Overdue · " + fmtDate(it.dl) : "Due " + fmtDate(it.dl) + (dt != null ? ` · ${dt} d` : "")}</span>`);
+  if (it.a) chips.push(`<span class="chip">Waiting ${it.a} d</span>`);
+  if (it.st && it.st !== "open") chips.push(`<span class="chip">${esc(it.st)}</span>`);
+  return `<div class="card ${pos ? "behind" : ""}" data-id="${esc(it.i)}" style="--c:var(--${it.d in DA ? it.d : "ada"})" tabindex="${pos ? -1 : 0}" aria-label="${esc(it.t)}">
+    <div class="band"></div>
+    <div class="meta"><span class="who"><span class="mono">${d.mono}</span>${esc(d.name)}</span><span class="kind">${esc(KIND[it.k] || "To do")}</span><span class="sp"></span>
+      ${it.P != null ? `<span class="pscore" title="Priority = importance × (urgency + 5)"><small>P</small> ${it.P}</span>` : ""}</div>
+    <h2 class="title">${esc(it.t)}</h2>
+    ${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}
+    ${it.pr ? `<div class="prop"><span class="lbl">Proposed</span>${esc(it.pr)}</div>` : ""}
+    ${it.w ? `<p class="why"><span class="lbl">Why</span>${esc(it.w)}</p>` : ""}
+    ${it.s ? `<p class="skip"><span class="lbl">If skipped</span>${esc(it.s)}</p>` : ""}
+    ${it.o ? `<p class="how"><span class="lbl">How</span>${esc(it.o)}</p>` : ""}
+    <div class="fill"></div>
+    <div class="hints"><span class="l">← <b>${esc(nl)}</b></span><span class="u">↑ Later · ↓ More</span><span class="r"><b>${esc(yl)}</b> →</span></div>
+    <div class="stamp s-y">${esc(yl)}</div><div class="stamp s-n">${esc(nl)}</div><div class="stamp s-l">Later</div><div class="stamp s-m">More</div>
+  </div>`;
+}
+function render() {
+  renderTabs();
+  const q = queue(); const S = $("stack");
+  const sys = isSystemDeck();
+  const dk = SNAP && SNAP.deck || "";
+  $("deckName").textContent = SNAP && SNAP.demo ? "Decision Deck · example" : sys ? "Tek · System deck" : dk === "cleanup" ? "Backlog cleanup" : dk.indexOf("canary") === 0 ? "Deck test" : "Ada · Decision deck";
+  const total = items().length, n = answers.length;
+  $("sub").textContent = SNAP ? `${SNAP.demo ? "Example items, not yours" : "Snapshot " + ago(SNAP.gen)}${SNAP.total > total ? ` · top ${total} of ${SNAP.total}` : ""}` : "";
+  $("tally").innerHTML = `<b>${n}</b> answered<br>${Math.max(total - n, 0)} left`;
+  $("doneBtn").disabled = n === 0; $("doneBtn").textContent = n ? `Send ${n}` : "Done";
+  if (inTg && tg.MainButton) {
+    if (n) { tg.MainButton.setParams({ text: `Send ${n} answer${n > 1 ? "s" : ""}`, is_visible: true, is_active: true }); }
+    else tg.MainButton.hide();
+  }
+  if (!q.length) {
+    S.innerHTML = `<div class="empty" style="position:absolute;inset:0;display:grid;place-content:center;justify-items:center">
+      <div class="big">${n ? "✓" : "∅"}</div><h2>${n ? (tab === "all" ? "That's the deck." : "This tab is clear.") : "Nothing waiting here."}</h2>
+      <p>${n ? `${n} answer${n > 1 ? "s" : ""} ready. Send them and the agents take it from there.` : "Pick another tab."}</p>
+      ${n ? `<button class="btn primary" id="sendInline" type="button">Send ${n} answer${n > 1 ? "s" : ""}</button>` : ""}</div>`;
+    const b = $("sendInline"); if (b) b.onclick = send;
+  } else {
+    S.innerHTML = q.slice(0, 3).reverse().map((it, idx, arr) => cardHTML(it, arr.length - 1 - idx)).join("");
+    S.querySelectorAll(".card").forEach((c, idx, all) => {
+      const pos = all.length - 1 - idx;
+      if (pos) c.style.transform = `translateY(${pos * 10}px) scale(${1 - pos * .035})`; else bindDrag(c);
+      if (pos) c.style.opacity = pos > 1 ? .55 : .85;
+    });
+  }
+  ["bNo", "bYes", "bLater", "bMore"].forEach(id => $(id).disabled = !q.length);
+  $("bUndo").disabled = !n;
+  // rails (wide screens)
+  const done = answered();
+  $("nextList").innerHTML = q.slice(1, 12).map(it => `<li><span class="mono" style="--c:var(--${it.d})">${(DA[it.d] || DA.ada).mono}</span><span class="tx">${esc(it.t)}</span><span class="v">P${it.P != null ? Math.round(it.P) : "–"}</span></li>`).join("") || `<li class="none" style="border:0;background:none;display:block">Nothing after this card.</li>`;
+  const byId = Object.fromEntries(items().map(it => [it.i, it]));
+  $("ansList").innerHTML = answers.slice().reverse().map(a => { const it = byId[a.id]; if (!it) return ""; return `<li><span class="mono" style="--c:var(--${it.d})">${(DA[it.d] || DA.ada).mono}</span><span class="tx">${esc(it.t)}</span><span class="v ${a.c}">${esc(verb(a, it))}</span></li>`; }).join("") || `<li class="none" style="border:0;background:none;display:block">Swipe or click a button. Answers stay here until you send.</li>`;
+  void done;
+}
+
+/* ---------- gestures ---------- */
+function bindDrag(card) {
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, t0 = 0, active = false, moved = false;
+  const st = k => card.querySelector(".stamp.s-" + k);
+  const show = () => {
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    st("y").style.opacity = dx > 0 && ax > ay ? Math.min(dx / 110, 1) : 0;
+    st("n").style.opacity = dx < 0 && ax > ay ? Math.min(-dx / 110, 1) : 0;
+    st("l").style.opacity = dy < 0 && ay > ax ? Math.min(-dy / 100, 1) : 0;
+    st("m").style.opacity = dy > 0 && ay > ax ? Math.min(dy / 100, 1) : 0;
+  };
+  card.addEventListener("pointerdown", e => { if (e.button > 0) return; active = true; moved = false; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; t0 = Date.now(); card.setPointerCapture(e.pointerId); card.classList.add("dragging"); card.classList.remove("settle"); });
+  card.addEventListener("pointermove", e => { if (!active) return; dx = e.clientX - x0; dy = e.clientY - y0; if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 22}deg)`; show(); });
+  const end = () => { if (!active) return; active = false; card.classList.remove("dragging");
+    const dt = Math.max(Date.now() - t0, 1), vx = dx / dt, vy = dy / dt, ax = Math.abs(dx), ay = Math.abs(dy);
+    if (!moved) { reset(); return openMore(); }
+    if (ax > ay && (ax > 110 || Math.abs(vx) > .6)) return decide(dx > 0 ? "y" : "n", card, dx, dy);
+    if (ay > ax && dy < 0 && (ay > 100 || Math.abs(vy) > .6)) return decide("l", card, dx, dy, 1);
+    if (ay > ax && dy > 0 && (ay > 100 || Math.abs(vy) > .6)) { reset(); return openMore(); }
+    reset(); };
+  const reset = () => { card.classList.add("settle"); card.style.transform = ""; card.querySelectorAll(".stamp").forEach(s => s.style.opacity = 0); };
+  card.addEventListener("pointerup", end); card.addEventListener("pointercancel", () => { active = false; reset(); });
+}
+function topCard() { return $("stack").querySelector(".card:not(.behind)"); }
+function decide(c, card, dx, dy, v, text) {
+  const q = queue(); if (!q.length) return; const it = q[0]; card = card || topCard();
+  if (c === "l" && !v) v = 1;
+  answers = answers.filter(a => a.id !== it.i).concat([{ id: it.i, c, v: c === "t" ? text : c === "l" ? v : undefined }]);
+  saveLocal(); haptic(c);
+  if (card) {
+    const W = window.innerWidth;
+    const tx = c === "y" ? W : c === "n" ? -W : (dx || 0), ty = c === "l" ? -window.innerHeight : c === "t" ? -window.innerHeight * .2 : (dy || 0);
+    card.classList.add("settle"); card.style.transform = `translate(${tx}px, ${ty}px) rotate(${c === "y" ? 18 : c === "n" ? -18 : 0}deg)`; card.style.opacity = 0;
+    const s = card.querySelector(".stamp.s-" + (c === "t" ? "y" : c)); if (s) s.style.opacity = 1;
+    setTimeout(render, 220);
+  } else render();
+}
+function haptic(c) { if (inTg && tg.HapticFeedback && can("6.1")) { try { c === "n" ? tg.HapticFeedback.notificationOccurred("warning") : tg.HapticFeedback.impactOccurred("light"); } catch (e) {} } }
+function undo() { if (!answers.length) return; const a = answers.pop(); saveLocal(); const it = items().find(x => x.i === a.id); if (it && tab !== "all" && it.d !== tab) tab = "all"; render(); toast("Undone"); }
+
+/* ---------- details sheet ---------- */
+function openSheet(html, onClose) {
+  $("sheet").innerHTML = `<div class="grab"></div>` + html; $("scrim").hidden = false;
+  const close = () => { $("scrim").hidden = true; if (inTg && tg.BackButton && can("6.1")) tg.BackButton.hide(); onClose && onClose(); };
+  $("scrim").onclick = e => { if (e.target === $("scrim")) close(); };
+  if (inTg && tg.BackButton && can("6.1")) { tg.BackButton.show(); tg.BackButton.onClick(close); }
+  return close;
+}
+function openMore() {
+  const it = queue()[0]; if (!it) return; const [yl, nl] = labels(it); const d = DA[it.d] || DA.ada;
+  const close = openSheet(`<div class="meta"><span class="who"><span class="mono" style="--c:var(--${it.d})">${d.mono}</span>${esc(d.name)}</span><span class="kind">${esc(KIND[it.k] || "")}</span></div>
+    <h3>${esc(it.t)}</h3>
+    ${it.pr ? `<div class="field"><span class="lbl">Proposed</span><div>${esc(it.pr)}</div></div>` : ""}
+    ${it.w ? `<div class="field"><span class="lbl">Why</span><div>${esc(it.w)}</div></div>` : ""}
+    ${it.o ? `<div class="field"><span class="lbl">Options / how</span><div>${esc(it.o)}</div></div>` : ""}
+    ${it.s ? `<div class="field"><span class="lbl">If skipped</span><div>${esc(it.s)}</div></div>` : ""}
+    <div class="field"><span class="lbl">Priority</span><div class="idline">P ${it.P ?? "–"} = I ${it.I ?? "–"} × (T ${it.T ?? "–"} + 5) · waiting ${it.a || 0} d${it.dl ? " · due " + esc(it.dl) : ""}</div></div>
+    <div class="field"><span class="lbl">Record</span><div class="idline">${esc(it.i)}${it.h ? " · " + esc(it.h) : ""}</div></div>
+    <div class="choices"><button class="choice y" data-c="y" type="button">${esc(yl)}</button><button class="choice n" data-c="n" type="button">${esc(nl)}</button>
+      ${LATER.map(([v, l]) => `<button class="choice l" data-c="l" data-v="${v}" type="button">${l}</button>`).join("")}</div>
+    <textarea id="reply" placeholder="Or answer in your own words…" maxlength="600"></textarea>
+    <div class="row"><button class="btn" id="cancel" type="button">Back to card</button><button class="btn primary" id="sendReply" type="button">Use this reply</button></div>`);
+  $("sheet").querySelectorAll(".choice").forEach(b => b.onclick = () => { close(); decide(b.dataset.c, null, 0, 0, b.dataset.v ? +b.dataset.v : undefined); });
+  $("cancel").onclick = close;
+  $("sendReply").onclick = () => { const t = $("reply").value.trim(); if (!t) { $("reply").focus(); return; } close(); decide("t", null, 0, 0, undefined, t); };
+}
+
+/* ---------- data out ---------- */
+function envelope() {
+  const a = answers.map(x => x.c === "t" ? [x.id, "t", x.v] : x.c === "l" ? [x.id, "l", x.v] : [x.id, x.c]);
+  const env = { v: 1, s: SNAP ? SNAP.ver : "", k: SNAP ? SNAP.deck : "", a };
+  let s = JSON.stringify(env); const enc = new TextEncoder();
+  // fit ≤4096 bytes: shorten the longest free-text answer until it fits (choice codes are tiny)
+  let guard = 0;
+  while (enc.encode(s).length > MAX_BYTES && guard++ < 200) {
+    let li = -1, ll = 0; env.a.forEach((r, i) => { if (r[1] === "t" && r[2].length > ll) { ll = r[2].length; li = i; } });
+    if (li < 0 || ll < 40) break; env.a[li][2] = env.a[li][2].slice(0, Math.floor(ll * .8)) + "…"; s = JSON.stringify(env);
+  }
+  return { s, bytes: enc.encode(s).length, trimmed: guard > 0 };
+}
+function send() {
+  if (!answers.length) return;
+  const { s, bytes, trimmed } = envelope();
+  if (bytes > MAX_BYTES) return toast("Too much to send in one go — send what you have, then reopen the deck.");
+  if (inTg && typeof tg.sendData === "function" && !(tg.initDataUnsafe && tg.initDataUnsafe.query_id)) {
+    try { sentMark(); tg.sendData(s); return; }   // Telegram closes the app on success; the mark stops a re-send of the same answers
+    catch (e) { saveLocal(); return toast("Telegram refused the send (" + (e.message || e) + "). Your answers are saved — reopen from the 📋 button."); }
+  }
+  // outside Telegram (demo / preview): show exactly what would be sent
+  const why = inTg ? "This deck was opened from a link, not the 📋 keyboard button, so Telegram won't accept answers from it. Open it from the 📋 button under the chat." :
+    SNAP && SNAP.demo ? "Example mode: this is what the agents would receive." : "Preview mode (opened in a browser): Telegram isn't here to deliver this. Open the deck from the 📋 button in Telegram.";
+  openSheet(`<h3>${answers.length} answer${answers.length > 1 ? "s" : ""} ready</h3><p style="color:var(--muted);margin:0 0 10px">${esc(why)}</p>
+    <div class="payload" id="payload">${esc(s)}</div><p class="idline" style="margin:8px 0 0">${bytes} of ${MAX_BYTES} bytes${trimmed ? " · long replies trimmed to fit" : ""}</p>
+    <div class="row"><button class="btn" id="copyP" type="button">Copy</button><button class="btn primary" id="okP" type="button">Close</button></div>`);
+  $("copyP").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(s).then(() => toast("Copied"), () => toast("Select the text to copy")); };
+  $("okP").onclick = () => { $("scrim").hidden = true; };
+}
+
+let toastT; function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+
+/* ---------- boot ---------- */
+async function boot() {
+  if (inTg) {
+    try { tg.ready(); tg.expand(); } catch (e) {}
+    if (can("7.7") && tg.disableVerticalSwipes) try { tg.disableVerticalSwipes(); } catch (e) {}   // swipe-down = More, not close
+    if (tg.colorScheme) document.documentElement.setAttribute("data-theme", tg.colorScheme);
+    if (tg.MainButton) tg.MainButton.onClick(send);
+    if (can("6.2") && tg.enableClosingConfirmation) try { tg.enableClosingConfirmation(); } catch (e) {}
+  }
+  const d = hashParam("d"), j = hashParam("j");
+  try {
+    if (d) { SNAP = await decode(d); MODE = inTg ? "live" : "preview"; }
+    else if (j) { SNAP = JSON.parse(new TextDecoder().decode(b64u(j))); MODE = inTg ? "live" : "preview"; }
+    else { SNAP = demo(); MODE = "demo"; }
+  } catch (e) {
+    SNAP = { v: 1, ver: "err", gen: new Date().toISOString(), deck: "ada", items: [] }; MODE = "error";
+    $("banner").hidden = false; $("banner").innerHTML = `<b>Couldn't open this deck.</b> ${esc(e.message || e)} Ask the agent to resend the 📋 button.`;
+  }
+  if (!Array.isArray(SNAP.items)) SNAP.items = [];
+  const num = v => (typeof v === "number" && isFinite(v)) ? v : (v == null || v === "" ? undefined : (isFinite(+v) ? +v : undefined));
+  SNAP.items = SNAP.items.filter(it => it && typeof it.i === "string").map(it => Object.assign({}, it, {
+    d: Object.prototype.hasOwnProperty.call(DA, it.d) ? it.d : "ada", P: num(it.P), I: num(it.I), T: num(it.T), a: num(it.a) || 0,
+    dl: /^\d{4}-\d{2}-\d{2}$/.test(it.dl || "") ? it.dl : undefined }));
+  const B = $("banner");
+  if (MODE === "demo") { B.hidden = false; B.innerHTML = "<b>Example deck.</b> These cards are made up. Your real deck opens from the 📋 button in Ada's or Tek's chat."; }
+  else if (MODE === "preview") { B.hidden = false; B.innerHTML = "<b>Preview.</b> Opened outside Telegram, so answers can't be delivered from here."; }
+  const saved = await loadLocal();
+  if (saved && saved.length) {
+    const ids = new Set(SNAP.items.map(i => i.i)); const keep = saved.filter(a => ids.has(a.id));
+    if (saved.sentAt) {
+      SENT = new Set(keep.map(a => a.id));
+      if (SENT.size) {
+        const B = $("banner"); B.hidden = false;
+        B.innerHTML = `<b>${SENT.size} answer${SENT.size > 1 ? "s" : ""} sent ${esc(ago(saved.sentAt))}.</b> If the agent said it couldn't record them, <button class="btn" id="resend" type="button">show them again</button>`;
+        $("resend").onclick = () => { answers = keep; SENT = new Set(); B.hidden = true; render(); toast("Answers back. Press Send when ready."); };
+      }
+    }
+    else { answers = keep; if (answers.length) toast(`Restored ${answers.length} unsent answer${answers.length > 1 ? "s" : ""}`); }
+  }
+  $("doneBtn").onclick = send;
+  $("bYes").onclick = () => decide("y"); $("bNo").onclick = () => decide("n"); $("bLater").onclick = () => decide("l", null, 0, 0, 1);
+  $("bMore").onclick = openMore; $("bUndo").onclick = undo;
+  document.addEventListener("keydown", e => {
+    if (!$("scrim").hidden) { if (e.key === "Escape") $("scrim").hidden = true; return; }
+    if (e.target && e.target.tagName === "TEXTAREA") return;
+    const k = e.key;
+    if (k === "ArrowRight") decide("y"); else if (k === "ArrowLeft") decide("n"); else if (k === "ArrowUp") decide("l", null, 0, 0, 1);
+    else if (k === "ArrowDown" || k === "Enter" || k === " ") { e.preventDefault(); openMore(); } else if (k === "u" || k === "U" || k === "Backspace") undo();
+    else return; e.preventDefault();
+  });
+  render();
+}
+boot();
+</script>
+</body>
+</html>
