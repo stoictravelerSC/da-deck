@@ -9,8 +9,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hanken+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
 <script src="telegram-web-app.js"></script>
 <style>
-/* Layout: one-screen app — header · DA tabs · a stack of index cards · round thumb controls.
-   ≥900px adds a "up next" rail (left) and an "answered" ledger (right) so a mouse user sees the whole run. */
+/* Layout: phone first — one slim header row (agent picker · progress · send), then the card fills the screen, then a slim
+   button row. ≥900px keeps the desktop layout: title, agent tabs, "up next" rail (left), "answered" ledger (right), key hints. */
 :root {
   --bg: #e9ecf1; --surface: #ffffff; --sunk: #f3f5f8; --ink: #14171c; --muted: #5a6271; --faint: #8b93a1; --line: #d8dde5;
   --accent: #1f3a8a;
@@ -20,7 +20,7 @@
   --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --f-body: "Hanken Grotesk", -apple-system, "Segoe UI", Roboto, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --r: 18px;
+  --r: 20px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
@@ -38,80 +38,98 @@
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--f-body); -webkit-font-smoothing: antialiased;
   overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
-button { font: inherit; color: inherit; }
-button:focus-visible, [tabindex]:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button, select { font: inherit; color: inherit; }
+button:focus-visible, [tabindex]:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [hidden] { display: none !important; }
 
 .app { height: 100%; display: flex; flex-direction: column; max-width: 1240px; margin: 0 auto;
-  padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px); }
+  padding: env(safe-area-inset-top, 0px) 12px env(safe-area-inset-bottom, 0px); }
+.app > * { min-width: 0; }
 
-/* header */
-.top { display: flex; align-items: center; gap: 12px; padding-block: 14px 8px; }
-.brand { min-width: 0; flex: 1; }
+/* header: phone = one row; desktop adds the title block */
+.top { display: flex; align-items: center; gap: 10px; padding-block: 10px 8px; position: relative; }
+.brand { display: none; min-width: 0; flex: 1; }
 .brand h1 { font: 700 20px/1.1 var(--f-display); letter-spacing: -.01em; margin: 0; }
 .brand .sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick { position: relative; display: inline-flex; align-items: center; gap: 7px; min-width: 0; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 999px; padding: 5px 30px 5px 6px; font-weight: 700; font-size: 14px; }
+.pick select { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; font-size: 16px; }
+.pick .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick .n { font: 500 12px var(--f-mono); color: var(--faint); }
+.pick svg { position: absolute; right: 10px; width: 12px; height: 12px; color: var(--muted); pointer-events: none; }
+.dot { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 700 11px var(--f-display); color: #fff; background: var(--c, var(--accent)); }
+.dot.all { background: var(--ink); color: var(--bg); }
+.tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--later);
+  border: 1px solid color-mix(in srgb, var(--later) 45%, var(--line)); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+.sp { flex: 1; }
+.count { font: 500 12.5px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tally { display: none; font: 500 12px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .tally b { color: var(--ink); font-weight: 500; }
-.done { border: 0; border-radius: 999px; padding: 9px 16px; background: var(--ink); color: var(--bg); font-weight: 700; cursor: pointer; white-space: nowrap; }
-.done:disabled { opacity: .35; cursor: default; }
+.done { border: 0; border-radius: 999px; padding: 7px 14px; background: var(--yes); color: #fff; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.done:disabled { opacity: .35; cursor: default; background: var(--ink); color: var(--bg); }
+.progress { position: absolute; left: 0; right: 0; bottom: 2px; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--yes); transition: width .25s; }
 .banner { margin: 2px 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--sunk); border: 1px dashed var(--line); color: var(--muted); font-size: 12.5px; }
 .banner b { color: var(--ink); }
+.banner.demo { display: none; }
 
-/* tabs */
-.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-block: 4px 10px; }
+/* desktop tabs (hidden on phones: the picker replaces them) */
+.tabs { display: none; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-block: 4px 10px; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px 6px 8px;
   display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13.5px; }
-.tab .dot { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font: 700 10px var(--f-display); color: #fff; background: var(--c, var(--accent)); }
+.tab .dot { width: 18px; height: 18px; font-size: 10px; }
 .tab .n { font: 500 11.5px var(--f-mono); color: var(--faint); }
 .tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .tab[aria-selected="true"] .n { color: inherit; opacity: .7; }
 
 /* main stage */
-.app > * { min-width: 0; }
 .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .rail { display: none; }
-.stage { position: relative; min-height: 0; display: grid; place-items: center; }
-.stack { position: relative; width: min(100%, 460px); height: min(100%, 580px); }
+.stage { position: relative; min-height: 0; display: grid; place-items: stretch; padding-bottom: 8px; }
+.stack { position: relative; width: 100%; height: 100%; }
 .card { position: absolute; inset: 0; background: var(--surface); border-radius: var(--r); box-shadow: var(--shadow);
-  border: 1px solid var(--line); padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 12px;
-  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; will-change: transform; overflow: hidden; }
+  border: 1px solid var(--line); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; will-change: transform; overflow: hidden; --fs: 1; }
 .card.behind { pointer-events: none; }
 .card.dragging { cursor: grabbing; transition: none !important; }
 .card.settle { transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
 .card .band { position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c); }
+.card .body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: calc(12px * var(--fs)); }
 
-.meta { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .who { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--ink); }
-.mono { width: 26px; height: 26px; border-radius: 8px; background: var(--c); color: #fff; display: grid; place-items: center; font: 700 13px var(--f-display); }
-.kind { text-transform: uppercase; letter-spacing: .07em; font-size: 10.5px; color: var(--faint); }
+.mono { flex: none; width: 24px; height: 24px; border-radius: 7px; background: var(--c); color: #fff; display: grid; place-items: center; font: 700 12px var(--f-display); }
+.kind { text-transform: uppercase; letter-spacing: .07em; font-size: 10.5px; font-weight: 700; color: var(--more); }
 .meta .sp { flex: 1; }
-.pscore { font: 500 12px var(--f-mono); font-variant-numeric: tabular-nums; color: var(--ink); background: var(--sunk); border: 1px solid var(--line); padding: 2px 7px; border-radius: 7px; }
-.pscore small { color: var(--faint); font-size: 10.5px; }
-
-.title { font: 700 clamp(19px, 5.2vw, 23px)/1.18 var(--f-display); letter-spacing: -.012em; margin: 0; text-wrap: balance; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .chip.hot { color: var(--no); border-color: color-mix(in srgb, var(--no) 40%, var(--line)); background: color-mix(in srgb, var(--no) 8%, var(--surface)); font-weight: 700; }
 .chip.warm { color: var(--later); border-color: color-mix(in srgb, var(--later) 40%, var(--line)); }
-.why, .how { overflow-wrap: anywhere; }
-.how { font-size: 13.5px; color: var(--muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.why { color: var(--ink); font-size: 15px; margin: 0; display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
-.why .lbl, .skip .lbl, .prop .lbl, .how .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); display: block; margin-bottom: 2px; }
-.prop { border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); font-size: 14px; }
-.skip { font-size: 13px; color: var(--muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.fill { flex: 1; }
-.hints { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; font-size: 12px; color: var(--faint); border-top: 1px solid var(--line); padding-top: 10px; }
+
+.title { font: 700 calc(25px * var(--fs))/1.16 var(--f-display); letter-spacing: -.015em; margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
+.prop { border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); font-size: calc(15px * var(--fs)); }
+.prop .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); display: block; margin-bottom: 2px; }
+.why { color: var(--ink); font-size: calc(15.5px * var(--fs)); line-height: 1.45; margin: 0; overflow-wrap: anywhere; }
+.skip, .how { color: var(--muted); font-size: calc(14.5px * var(--fs)); margin: 0; overflow-wrap: anywhere; }
+.skip b, .how b { color: var(--ink); font-weight: 700; }
+.fade { display: none; position: absolute; left: 1px; right: 1px; bottom: 1px; height: 76px; border-radius: 0 0 var(--r) var(--r);
+  background: linear-gradient(to bottom, transparent, var(--surface) 62%); align-items: end; justify-content: center; padding-bottom: 12px;
+  font-size: 12.5px; font-weight: 700; color: var(--more); pointer-events: none; }
+.card.clipped .fade { display: flex; }
+.hints { display: none; grid-template-columns: 1fr auto 1fr; align-items: center; font-size: 12px; color: var(--faint); border-top: 1px solid var(--line); padding-top: 10px; }
 .hints .l { color: var(--no); } .hints .r { color: var(--yes); text-align: right; } .hints .u { color: var(--later); text-align: center; }
 .hints b { font-weight: 700; }
 
-.stamp { position: absolute; top: 22px; padding: 6px 12px; border: 3px solid currentColor; border-radius: 10px; font: 700 20px var(--f-display);
-  text-transform: uppercase; letter-spacing: .06em; opacity: 0; pointer-events: none; background: var(--surface); }
-.stamp.s-y { right: 18px; color: var(--yes); transform: rotate(8deg); }
-.stamp.s-n { left: 18px; color: var(--no); transform: rotate(-8deg); }
-.stamp.s-l { left: 50%; top: auto; bottom: 64px; transform: translateX(-50%); color: var(--later); }
-.stamp.s-m { left: 50%; top: 40%; transform: translateX(-50%); color: var(--more); }
+/* swipe stamps: a fixed layer over the screen (they don't ride the card), upper third, on the side the swipe starts FROM —
+   clear of the thumb and never carried off-screen */
+.stamps { position: fixed; inset: 0; pointer-events: none; z-index: 26; }
+.stamp { position: absolute; top: 24%; padding: 7px 14px; border: 3px solid currentColor; border-radius: 12px; font: 700 22px var(--f-display);
+  text-transform: uppercase; letter-spacing: .05em; opacity: 0; background: var(--surface); white-space: nowrap; box-shadow: var(--shadow); }
+.stamp.s-y  { left: 20px;  color: var(--yes);   transform: rotate(-8deg); }
+.stamp.s-n  { right: 20px; color: var(--no);    transform: rotate(8deg); }
+.stamp.s-l1 { left: 50%; top: 18%; transform: translateX(-50%); color: var(--later); }
+.stamp.s-l3 { right: 20px; color: var(--later); transform: rotate(6deg); }
+.stamp.s-l7 { left: 20px;  color: var(--later); transform: rotate(-6deg); }
 
 .empty { text-align: center; padding: 28px; max-width: 360px; }
 .empty h2 { font: 700 24px var(--f-display); margin: 8px 0; }
@@ -119,44 +137,73 @@ button:focus-visible, [tabindex]:focus-visible, textarea:focus-visible { outline
 .empty .big { font: 700 44px var(--f-display); color: var(--yes); }
 
 /* controls */
-.controls { display: flex; justify-content: center; align-items: center; gap: 14px; padding-block: 12px 14px; }
-.fab { border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); border-radius: 50%; width: 52px; height: 52px; display: grid; place-items: center; cursor: pointer; position: relative; }
-.fab svg { width: 24px; height: 24px; }
-.fab.big { width: 64px; height: 64px; } .fab.big svg { width: 30px; height: 30px; }
-.fab.small { width: 42px; height: 42px; } .fab.small svg { width: 19px; height: 19px; }
-.fab.no { color: var(--no); } .fab.yes { color: var(--yes); } .fab.later { color: var(--later); } .fab.more { color: var(--more); } .fab.undo { color: var(--muted); }
+.controls { display: flex; justify-content: center; align-items: center; gap: 18px; padding-block: 4px 12px; }
+.fab { border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); border-radius: 50%; width: 48px; height: 48px; display: grid; place-items: center; cursor: pointer; position: relative; }
+.fab svg { width: 22px; height: 22px; }
+.fab.big { width: 58px; height: 58px; } .fab.big svg { width: 27px; height: 27px; }
+.fab.small { width: 40px; height: 40px; box-shadow: none; } .fab.small svg { width: 18px; height: 18px; }
+.fab.no { color: var(--no); } .fab.yes { color: var(--yes); } .fab.later { color: var(--later); } .fab.more { color: var(--more); display: none; } .fab.undo { color: var(--muted); }
 .fab:active { transform: scale(.94); }
 .fab:disabled { opacity: .35; cursor: default; }
-.fab .tip { position: absolute; bottom: -18px; font-size: 10.5px; color: var(--faint); white-space: nowrap; }
+.controls .ghost { width: 40px; }
 
-/* details sheet */
-.scrim { position: fixed; inset: 0; background: rgba(10,12,16,.45); z-index: 20; display: grid; align-items: end; justify-items: center; }
+/* details: the same card, opened up — full text plus extra choices; tap empty space to go back, swipe = same as the card */
+.dwrap { position: fixed; inset: 0; z-index: 20; background: rgba(10,12,16,.45); display: grid; justify-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); }
+.dwrap .card { position: relative; inset: auto; width: min(100%, 560px); height: 100%; cursor: default; padding: 0; }
+.dwrap .dscroll { height: 100%; overflow: hidden; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.dwrap .why { font-size: 16.5px; } .dwrap .title { font-size: 24px; }
+.sec h3 { margin: 0 0 4px; font: 700 11px var(--f-mono, ui-monospace, monospace); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+.sec p, .sec ul { margin: 0; font-size: calc(15px * var(--fs, 1)); line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
+.sec ul { padding-left: 18px; display: grid; gap: 4px; }
+.sec .cmd { display: block; margin-top: 4px; font: 500 12px/1.45 var(--f-mono, ui-monospace, monospace); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; overflow-wrap: anywhere; user-select: all; }
+.dsep { border: 0; border-top: 1px dashed var(--line); margin: 2px 0; width: 100%; }
+.sec.warn h3 { color: var(--later); }
+.home { margin: 0; font-size: 12px; color: var(--faint); }
+.dfoot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 6px; }
+.choices { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.choice.y, .choice.n { grid-column: span 3; } .choice.l { grid-column: span 2; font-size: 14px; }
+.choice { border: 1px solid var(--line); background: var(--sunk); border-radius: 12px; padding: 11px 8px; cursor: pointer; font-weight: 700; text-align: center; }
+.choice.y { color: var(--yes); } .choice.n { color: var(--no); } .choice.l { color: var(--later); }
+textarea { width: 100%; min-height: 64px; border-radius: 12px; border: 1px solid var(--line); background: var(--sunk); color: var(--ink); padding: 10px 12px; font: 16px/1.4 var(--f-body); resize: none; user-select: text; -webkit-user-select: text; }
+.replyrow { display: flex; gap: 8px; }
+.replyrow textarea { flex: 1; }
+.replyrow .btn { align-self: stretch; }
+.idline { font: 500 11.5px var(--f-mono); color: var(--faint); overflow-wrap: anywhere; text-align: center; }
+
+/* send-preview sheet (outside Telegram only) */
+.scrim { position: fixed; inset: 0; background: rgba(10,12,16,.45); z-index: 25; display: grid; align-items: end; justify-items: center; }
 .sheet { width: min(100%, 560px); max-height: 88%; overflow: auto; background: var(--surface); border-radius: 22px 22px 0 0;
   padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: var(--shadow); }
 .sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 4px auto 12px; }
 .sheet h3 { font: 700 21px/1.2 var(--f-display); margin: 6px 0 10px; text-wrap: balance; }
-.sheet .field { margin: 12px 0; }
-.sheet .field .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); }
-.sheet .field div { margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.sheet code, .sheet .idline { font: 500 12px var(--f-mono); color: var(--muted); overflow-wrap: anywhere; }
-.choices { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 14px 0 8px; }
-.choice.y, .choice.n { grid-column: span 3; } .choice.l { grid-column: span 2; font-size: 14px; }
-.choice { border: 1px solid var(--line); background: var(--sunk); border-radius: 12px; padding: 11px 10px; cursor: pointer; font-weight: 700; text-align: center; }
-.choice.y { color: var(--yes); } .choice.n { color: var(--no); } .choice.l { color: var(--later); }
-textarea { width: 100%; min-height: 76px; border-radius: 12px; border: 1px solid var(--line); background: var(--sunk); color: var(--ink); padding: 10px 12px; font: 15px/1.4 var(--f-body); resize: vertical; }
 .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 14px; cursor: pointer; font-weight: 700; }
 .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .payload { font: 500 11.5px/1.5 var(--f-mono); background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg);
+.toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg);
   padding: 9px 14px; border-radius: 10px; font-size: 13.5px; z-index: 30; max-width: calc(100% - 32px); }
 
-/* wide screens: up-next rail + answered ledger */
-@media (min-width: 600px) { .tally { display: block; } }
+/* wide screens: the desktop layout */
+@media (min-width: 600px) { .tally { display: block; } .count { display: none; } }
 @media (min-width: 900px) {
+  .app { padding-inline: 16px; }
+  .top { gap: 12px; padding-block: 14px 8px; }
+  .brand { display: block; } .pick, .top .tag, .progress { display: none; }
+  .done { padding: 9px 16px; background: var(--ink); color: var(--bg); }
+  .banner.demo { display: block; }
+  .tabs { display: flex; }
   .main { grid-template-columns: 250px minmax(0, 1fr) 270px; }
-  .card .how { -webkit-line-clamp: 4; }
+  .stage { place-items: center; padding-bottom: 0; }
+  .stack { width: min(100%, 460px); height: min(100%, 600px); }
+  .card { padding: 18px 18px 14px; }
+  .hints { display: grid; }
+  .controls { gap: 14px; padding-block: 12px 14px; }
+  .fab { width: 52px; height: 52px; } .fab svg { width: 24px; height: 24px; }
+  .fab.big { width: 64px; height: 64px; } .fab.big svg { width: 30px; height: 30px; }
+  .fab.small { width: 42px; height: 42px; box-shadow: var(--shadow); }
+  .fab.more { display: grid; } .controls .ghost { display: none; }
   .rail { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
   .rail h4 { margin: 4px 2px; font: 700 12px var(--f-display); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
   .rail ol { list-style: none; margin: 0; padding: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
@@ -166,7 +213,7 @@ textarea { width: 100%; min-height: 76px; border-radius: 12px; border: 1px solid
   .rail li .v { font: 500 11px var(--f-mono); color: var(--faint); }
   .rail li .v.y { color: var(--yes); } .rail li .v.n { color: var(--no); } .rail li .v.l { color: var(--later); } .rail li .v.t { color: var(--more); }
   .rail .none { color: var(--faint); font-size: 13px; padding: 4px 2px; }
-  .stack { height: min(100%, 600px); }
+  .dwrap { padding-block: 40px; }
 }
 @media (prefers-reduced-motion: reduce) { .card.settle { transition: none; } }
 </style>
@@ -175,8 +222,14 @@ textarea { width: 100%; min-height: 76px; border-radius: 12px; border: 1px solid
 <div class="app" id="app">
   <header class="top">
     <div class="brand"><h1 id="deckName">Decision Deck</h1><div class="sub" id="sub">Loading…</div></div>
+    <label class="pick" id="pick" aria-label="Show cards from"><span class="dot all" id="pickDot">★</span><span class="lbl" id="pickLbl">All</span><span class="n" id="pickN"></span>
+      <select id="pickSel"></select><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></label>
+    <span class="tag" id="modeTag" hidden></span>
+    <span class="sp"></span>
+    <span class="count" id="count"></span>
     <div class="tally" id="tally"></div>
     <button class="done" id="doneBtn" type="button" disabled>Done</button>
+    <div class="progress" aria-hidden="true"><i id="prog"></i></div>
   </header>
   <div class="banner" id="banner" hidden></div>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Agents"></nav>
@@ -188,11 +241,14 @@ textarea { width: 100%; min-height: 76px; border-radius: 12px; border: 1px solid
   <footer class="controls" id="controls">
     <button class="fab small undo" id="bUndo" type="button" aria-label="Undo last answer (U)" title="Undo (U)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
     <button class="fab big no" id="bNo" type="button" aria-label="Swipe left" title="← key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <button class="fab later" id="bLater" type="button" aria-label="Later (swipe up)" title="↑ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></button>
-    <button class="fab more" id="bMore" type="button" aria-label="More info (swipe down or tap)" title="↓ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
+    <button class="fab later" id="bLater" type="button" aria-label="Later: tomorrow (swipe up)" title="↑ key · 3 = 3 days · 7 = next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></button>
+    <button class="fab more" id="bMore" type="button" aria-label="Details (tap the card)" title="↓ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
     <button class="fab big yes" id="bYes" type="button" aria-label="Swipe right" title="→ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5L19.5 7"/></svg></button>
+    <span class="ghost" aria-hidden="true"></span>
   </footer>
 </div>
+<div class="dwrap" id="dwrap" hidden></div>
+<div class="stamps" id="stampLayer" aria-hidden="true"></div>
 <div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -201,7 +257,8 @@ textarea { width: 100%; min-height: 76px; border-radius: 12px; border: 1px solid
 /* Decision Deck — Telegram Mini App (DA attention redesign, D-deck). Data in: URL fragment `d=` (raw-deflate JSON, base64url)
    built by ~/.claude/scripts/da-deck-snapshot.py — the host never sees it. Data out: Telegram.WebApp.sendData (≤4096 bytes,
    keyboard-button launches only), envelope {"v":1,"s":ver,"k":deck,"a":[[id,"y"|"n"],[id,"l",days],[id,"t",text]]}.
-   Unsent answers are cached in DeviceStorage (Bot API 9.0+) with a localStorage fallback and re-offered on the next open. */
+   Unsent answers are cached in DeviceStorage (Bot API 9.0+) with a localStorage fallback and re-offered on the next open.
+   Gestures (card and details alike): right = yes · left = no · up = tomorrow · up-left = 3 days · up-right = next week · tap = details/back. */
 const DA = {
   ada: { name: "Ada", mono: "A", role: "chief of staff" }, coach: { name: "Kay", mono: "K", role: "health coach" },
   sosh: { name: "Sosh", mono: "S", role: "social" }, lib: { name: "Lib", mono: "L", role: "library" },
@@ -210,7 +267,7 @@ const TAB_ORDER = ["ada", "coach", "sosh", "lib", "finn"];
 const KIND = { todo: "To do", approval: "Approval", installer: "Installer", question: "Question", proposal: "Cleanup proposal" };
 const LABELS = { todo: ["Done", "Drop"], approval: ["Approve", "Reject"], installer: ["Install", "Decline"],
   question: ["Yes", "No"], proposal: ["Accept", "Keep as is"] };
-const LATER = [[1, "Tomorrow"], [3, "In 3 days"], [7, "Next week"]];
+const LATER = [[1, "Tomorrow"], [3, "3 days"], [7, "Next week"]];
 const MAX_BYTES = 4096;
 
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -220,8 +277,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 let SNAP = null, MODE = "demo", tab = "all";
-let answers = [];
-let SENT = new Set();          // ids already delivered from this same snapshot (reopened deck)            // [{id, c:"y"|"n"|"l"|"t", v}] in answer order
+let answers = [];              // [{id, c:"y"|"n"|"l"|"t", v}] in answer order
+let SENT = new Set();          // ids already delivered from this same snapshot (reopened deck)
 const answered = () => new Set(answers.map(a => a.id).concat(Array.from(SENT)));
 
 /* ---------- data in ---------- */
@@ -240,7 +297,7 @@ async function decode(d) {
 function demo() {
   // FICTIONAL example cards only: this file is published to a public repo, so nothing here may echo a real item.
   return { v: 1, ver: "demo", gen: new Date().toISOString(), deck: "ada", total: 6, demo: true, items: [
-    { i: "demo-1", d: "finn", k: "todo", t: "Renew the car registration online (example)", w: "The renewal notice arrived last week. It takes about ten minutes with the notice number.", o: "Notice is in the mail tray; the site is linked on the card.", s: "a late fee after the due date", P: 40, I: 4, T: 5, a: 6, dl: new Date(Date.now() + 9 * 864e5).toISOString().slice(0, 10) },
+    { i: "demo-1", d: "finn", k: "todo", t: "Renew the car registration online (example)", w: "The renewal notice arrived last week. It takes about ten minutes with the notice number.", o: "Notice is in the mail tray; the site is linked on the card.", s: "a late fee after the due date", e: ["Notice number is on the top right of the letter", "⚠ The site adds a $4 card fee; paying by bank transfer is free"], P: 40, I: 4, T: 5, a: 6, dl: new Date(Date.now() + 9 * 864e5).toISOString().slice(0, 10) },
     { i: "demo-2", d: "ada", k: "todo", t: "Book a dentist cleaning (example)", w: "It has been about seven months. Smallest step: pick a slot online, two minutes.", s: "", P: 28, I: 3.5, T: 3, a: 12 },
     { i: "demo-3", d: "sosh", k: "question", t: "Invite Sam to Saturday's board-game night?", w: "Sam said they wanted to come to the next one.", P: 18, I: 2, T: 4, a: 2 },
     { i: "demo-4", d: "lib", k: "todo", t: "Choose where saved articles should go (example)?", w: "Three options; Ada's pick is B, one reading list for everything.", o: "A) separate lists per topic · B) one reading list (REC) · C) decide each time", P: 22.5, I: 3, T: 2.5, a: 4, y: "Yes: B", n: "No" },
@@ -282,147 +339,223 @@ function daysTo(iso) { if (!iso) return null; const d = new Date(iso + "T12:00:0
 function fmtDate(iso) { try { return new Date(iso + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch (e) { return iso; } }
 function ago(iso) { const m = Math.round((Date.now() - new Date(iso)) / 6e4); if (!isFinite(m)) return ""; if (m < 2) return "just now"; if (m < 60) return m + " min ago"; const h = Math.round(m / 60); return h < 36 ? h + " h ago" : Math.round(h / 24) + " d ago"; }
 function verb(a, it) { if (a.c === "y") return labels(it)[0]; if (a.c === "n") return labels(it)[1]; if (a.c === "l") return "Later +" + a.v + "d"; return "Reply"; }
+function deckLabel() {
+  const dk = SNAP && SNAP.deck || "";
+  return SNAP && SNAP.demo ? "Decision Deck · example" : isSystemDeck() ? "Tek · System deck" : dk === "cleanup" ? "Backlog cleanup" : dk.indexOf("canary") === 0 ? "Deck test" : "Ada · Decision deck";
+}
+function tabDefs() {
+  if (isSystemDeck()) return [["all", "System", "tek"]];
+  const present = TAB_ORDER.concat(["tek"]).filter(d => items().some(it => it.d === d));   // mixed decks (cleanup) may hold Tek cards
+  const allName = SNAP && SNAP.deck === "cleanup" ? "Cleanup" : "All agents";
+  return [["all", allName, null]].concat(present.map(d => [d, DA[d].name, d]));
+}
 
 /* ---------- render ---------- */
 function renderTabs() {
   const T = $("tabs"); const done = answered();
   const left = d => items().filter(it => (d === "all" || it.d === d) && !done.has(it.i)).length;
-  let defs;
-  if (isSystemDeck()) defs = [["all", "System", "tek"]];
-  else {
-    const present = TAB_ORDER.concat(["tek"]).filter(d => items().some(it => it.d === d));   // mixed decks (cleanup) may hold Tek cards
-    defs = [["all", "All", null]].concat(present.map(d => [d, DA[d].name, d]));
-  }
+  const defs = tabDefs();
   T.innerHTML = defs.map(([k, name, d]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-tab="${k}" style="${d ? `--c:var(--${d})` : ""}">` +
-    (d ? `<span class="dot">${DA[d].mono}</span>` : `<span class="dot" style="--c:var(--ink);color:var(--bg)">★</span>`) +
-    `${esc(name)} <span class="n">${left(k)}</span></button>`).join("");
+    (d ? `<span class="dot">${DA[d].mono}</span>` : `<span class="dot all">★</span>`) +
+    `${esc(k === "all" && !isSystemDeck() ? "All" : name)} <span class="n">${left(k)}</span></button>`).join("");
   T.querySelectorAll(".tab").forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+  // phone: the same choice as a compact picker (native menu)
+  const cur = defs.find(x => x[0] === tab) || defs[0];
+  const dot = $("pickDot"); dot.className = "dot" + (cur[2] ? "" : " all"); dot.textContent = cur[2] ? DA[cur[2]].mono : "★"; dot.style.cssText = cur[2] ? `--c:var(--${cur[2]})` : "";
+  $("pickLbl").textContent = cur[1]; $("pickN").textContent = left(cur[0]);
+  $("pickSel").innerHTML = defs.map(([k, name]) => `<option value="${k}"${k === tab ? " selected" : ""}>${esc(name)} (${left(k)})</option>`).join("");
+  $("pickSel").disabled = defs.length < 2; $("pick").querySelector("svg").style.display = defs.length < 2 ? "none" : "";
+}
+function dueChip(it) {
+  if (!it.dl) return ""; const dt = daysTo(it.dl);
+  const cls = dt != null && dt <= 7 ? "hot" : dt != null && dt <= 30 ? "warm" : "";
+  const txt = dt != null && dt < 0 ? "Overdue · " + fmtDate(it.dl) : dt === 0 ? "Due today" : dt === 1 ? "Due tomorrow" : "Due " + fmtDate(it.dl) + (dt != null && dt <= 30 ? ` · ${dt} d` : "");
+  return `<span class="chip ${cls}">${txt}</span>`;
+}
+function bodyHTML(it, full) {
+  const d = DA[it.d] || DA.ada;
+  const howLbl = /(^|\s)[A-C]\)/.test(it.o || "") ? "Options" : "How";
+  const extra = full ? [it.a ? `<span class="chip">Waiting ${it.a} d</span>` : "", it.st && it.st !== "open" ? `<span class="chip">${esc(it.st)}</span>` : ""].join("") : "";
+  return `<div class="meta"><span class="who"><span class="mono">${d.mono}</span>${esc(d.name)}</span>${it.k && it.k !== "todo" ? `<span class="kind">${esc(KIND[it.k] || "")}</span>` : ""}<span class="sp"></span>${dueChip(it)}${extra}</div>
+    <h2 class="title">${esc(it.t)}</h2>
+    ${it.pr ? `<div class="prop"><span class="lbl">Proposed</span>${esc(it.pr)}</div>` : ""}
+    ${it.w ? `<section class="sec"><h3>Why it matters</h3><p class="why">${esc(it.w)}</p></section>` : ""}
+    ${frontHTML(it, howLbl)}${full ? detailHTML(it) : ""}`;
+}
+// card front = enough to decide without opening: why · what to do · if you skip it (plain words, no paths).
+// details add the specifics (paths, commands, file names) and the trade-offs/watch-outs: `e`, a list; a "⚠ " item is a trade-off.
+// " · " in o/s starts a new bullet; a `bash …` / `launchctl …` / `touch …` item renders as a copyable command block.
+const CMD = /^(Run in Terminal:\s*|Command:\s*|Kill switch:\s*)?(bash|launchctl|touch)\s/;
+function one(x) { const m = x.match(CMD); return m ? `${m[1] ? esc(m[1]) : ""}<code class="cmd">${esc(x.slice((m[1] || "").length))}</code>` : esc(x); }
+function bullets(s) {
+  const parts = (Array.isArray(s) ? s : String(s).split(/\s+·\s+/)).map(x => x.trim()).filter(Boolean);
+  return parts.length > 1 ? `<ul>${parts.map(x => `<li>${one(x)}</li>`).join("")}</ul>` : `<p>${one(parts[0] || "")}</p>`;
+}
+function frontHTML(it, howLbl) {
+  return (it.o ? `<section class="sec"><h3>${howLbl === "Options" ? "Your options" : "What to do"}</h3>${bullets(it.o)}</section>` : "") +
+    (it.s ? `<section class="sec"><h3>If you skip it</h3>${bullets(it.s)}</section>` : "");
+}
+function detailHTML(it) {
+  const e = Array.isArray(it.e) ? it.e : [], risk = e.filter(x => /^⚠/.test(x)).map(x => x.replace(/^⚠\s*/, "")), spec = e.filter(x => !/^⚠/.test(x));
+  return (spec.length || risk.length || it.h ? `<hr class="dsep">` : "") +
+    (spec.length ? `<section class="sec"><h3>Specifics</h3>${bullets(spec)}</section>` : "") +
+    (risk.length ? `<section class="sec warn"><h3>Trade-offs &amp; watch-outs</h3>${bullets(risk)}</section>` : "") +
+    (it.h ? `<p class="home">Lives in ${esc(it.h)}${/^\d+$/.test(it.x || "") ? " · todo #" + esc(it.x) : ""}</p>` : "");
+}
+function stamps(it) {
+  const [yl, nl] = labels(it);
+  return `<div class="stamp s-y">${esc(yl)}</div><div class="stamp s-n">${esc(nl)}</div>` +
+    LATER.map(([v, l]) => `<div class="stamp s-l${v}">${l}</div>`).join("");
 }
 function cardHTML(it, pos) {
-  const d = DA[it.d] || DA.ada; const [yl, nl] = labels(it); const dt = daysTo(it.dl);
-  const chips = [];
-  if (it.dl) chips.push(`<span class="chip ${dt != null && dt <= 7 ? "hot" : dt != null && dt <= 30 ? "warm" : ""}">${dt != null && dt < 0 ? "Overdue · " + fmtDate(it.dl) : "Due " + fmtDate(it.dl) + (dt != null ? ` · ${dt} d` : "")}</span>`);
-  if (it.a) chips.push(`<span class="chip">Waiting ${it.a} d</span>`);
-  if (it.st && it.st !== "open") chips.push(`<span class="chip">${esc(it.st)}</span>`);
+  const [yl, nl] = labels(it);
   return `<div class="card ${pos ? "behind" : ""}" data-id="${esc(it.i)}" style="--c:var(--${it.d in DA ? it.d : "ada"})" tabindex="${pos ? -1 : 0}" aria-label="${esc(it.t)}">
     <div class="band"></div>
-    <div class="meta"><span class="who"><span class="mono">${d.mono}</span>${esc(d.name)}</span><span class="kind">${esc(KIND[it.k] || "To do")}</span><span class="sp"></span>
-      ${it.P != null ? `<span class="pscore" title="Priority = importance × (urgency + 5)"><small>P</small> ${it.P}</span>` : ""}</div>
-    <h2 class="title">${esc(it.t)}</h2>
-    ${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}
-    ${it.pr ? `<div class="prop"><span class="lbl">Proposed</span>${esc(it.pr)}</div>` : ""}
-    ${it.w ? `<p class="why"><span class="lbl">Why</span>${esc(it.w)}</p>` : ""}
-    ${it.s ? `<p class="skip"><span class="lbl">If skipped</span>${esc(it.s)}</p>` : ""}
-    ${it.o ? `<p class="how"><span class="lbl">How</span>${esc(it.o)}</p>` : ""}
-    <div class="fill"></div>
-    <div class="hints"><span class="l">← <b>${esc(nl)}</b></span><span class="u">↑ Later · ↓ More</span><span class="r"><b>${esc(yl)}</b> →</span></div>
-    <div class="stamp s-y">${esc(yl)}</div><div class="stamp s-n">${esc(nl)}</div><div class="stamp s-l">Later</div><div class="stamp s-m">More</div>
+    <div class="body">${bodyHTML(it, false)}</div>
+    <div class="fade">Tap to read all</div>
+    <div class="hints"><span class="l">← <b>${esc(nl)}</b></span><span class="u">↑ Later · tap for details</span><span class="r"><b>${esc(yl)}</b> →</span></div>
   </div>`;
+}
+// size the card's text to the card: up to 130 % for short items, down to ~80 % for long ones; past that, fade the bottom and point to the details
+function fit(card) {
+  const b = card.querySelector(".body"), over = () => b.scrollHeight > b.clientHeight + 1; let s = 1; card.style.setProperty("--fs", s);
+  while (!over() && s < 1.3) { s = Math.round((s + .05) * 100) / 100; card.style.setProperty("--fs", s); }   // short card: bigger text, less blank
+  while (over() && s > .8) { s = Math.round((s - .04) * 100) / 100; card.style.setProperty("--fs", s); }
+  card.classList.toggle("clipped", b.scrollHeight > b.clientHeight + 1);
 }
 function render() {
   renderTabs();
   const q = queue(); const S = $("stack");
-  const sys = isSystemDeck();
-  const dk = SNAP && SNAP.deck || "";
-  $("deckName").textContent = SNAP && SNAP.demo ? "Decision Deck · example" : sys ? "Tek · System deck" : dk === "cleanup" ? "Backlog cleanup" : dk.indexOf("canary") === 0 ? "Deck test" : "Ada · Decision deck";
+  $("deckName").textContent = deckLabel();
   const total = items().length, n = answers.length;
+  const old = SNAP && !SNAP.demo && SNAP.gen && (Date.now() - new Date(SNAP.gen)) > 6 * 36e5;
   $("sub").textContent = SNAP ? `${SNAP.demo ? "Example items, not yours" : "Snapshot " + ago(SNAP.gen)}${SNAP.total > total ? ` · top ${total} of ${SNAP.total}` : ""}` : "";
+  const T = $("modeTag");
+  T.hidden = !(MODE === "demo" || MODE === "preview" || old);
+  T.textContent = MODE === "demo" ? "Example" : MODE === "preview" ? "Preview" : old ? ago(SNAP.gen).replace(" ago", " old") : "";
+  T.title = MODE === "demo" ? "Made-up cards. Your real deck opens from the 📋 button in Ada's or Tek's chat." : MODE === "preview" ? "Opened outside Telegram, so answers can't be delivered from here." : "This snapshot is old; reopen the deck for fresh items.";
   $("tally").innerHTML = `<b>${n}</b> answered<br>${Math.max(total - n, 0)} left`;
+  const seen = Math.min(n + SENT.size, total);
+  $("count").textContent = total ? `${Math.min(seen + (q.length ? 1 : 0), total)}/${total}` : "";
+  $("prog").style.width = total ? (100 * seen / total) + "%" : "0";
   $("doneBtn").disabled = n === 0; $("doneBtn").textContent = n ? `Send ${n}` : "Done";
+  $("doneBtn").hidden = inTg && !!tg.MainButton || (n === 0 && window.innerWidth < 900);   // Telegram shows its own Send button
   if (inTg && tg.MainButton) {
     if (n) { tg.MainButton.setParams({ text: `Send ${n} answer${n > 1 ? "s" : ""}`, is_visible: true, is_active: true }); }
     else tg.MainButton.hide();
   }
   if (!q.length) {
-    S.innerHTML = `<div class="empty" style="position:absolute;inset:0;display:grid;place-content:center;justify-items:center">
-      <div class="big">${n ? "✓" : "∅"}</div><h2>${n ? (tab === "all" ? "That's the deck." : "This tab is clear.") : "Nothing waiting here."}</h2>
-      <p>${n ? `${n} answer${n > 1 ? "s" : ""} ready. Send them and the agents take it from there.` : "Pick another tab."}</p>
+    S.innerHTML = `<div class="empty" style="position:absolute;inset:0;display:grid;place-content:center;justify-items:center;max-width:none">
+      <div class="big">${n ? "✓" : "∅"}</div><h2>${n ? (tab === "all" ? "That's the deck." : "This agent is clear.") : "Nothing waiting here."}</h2>
+      <p>${n ? `${n} answer${n > 1 ? "s" : ""} ready. Send them and the agents take it from there.` : "Pick another agent."}</p>
       ${n ? `<button class="btn primary" id="sendInline" type="button">Send ${n} answer${n > 1 ? "s" : ""}</button>` : ""}</div>`;
     const b = $("sendInline"); if (b) b.onclick = send;
   } else {
-    S.innerHTML = q.slice(0, 3).reverse().map((it, idx, arr) => cardHTML(it, arr.length - 1 - idx)).join("");
+    S.innerHTML = q.slice(0, 2).reverse().map((it, idx, arr) => cardHTML(it, arr.length - 1 - idx)).join("");
     S.querySelectorAll(".card").forEach((c, idx, all) => {
       const pos = all.length - 1 - idx;
-      if (pos) c.style.transform = `translateY(${pos * 10}px) scale(${1 - pos * .035})`; else bindDrag(c);
-      if (pos) c.style.opacity = pos > 1 ? .55 : .85;
+      if (pos) { c.style.transform = "translateY(7px) scale(.97)"; c.style.opacity = .7; c.setAttribute("aria-hidden", "true"); }
+      else { fit(c); bindSwipe(c, { onTap: openMore }); }
     });
   }
+  $("stampLayer").innerHTML = q.length ? stamps(q[0]) : "";
   ["bNo", "bYes", "bLater", "bMore"].forEach(id => $(id).disabled = !q.length);
   $("bUndo").disabled = !n;
   // rails (wide screens)
-  const done = answered();
-  $("nextList").innerHTML = q.slice(1, 12).map(it => `<li><span class="mono" style="--c:var(--${it.d})">${(DA[it.d] || DA.ada).mono}</span><span class="tx">${esc(it.t)}</span><span class="v">P${it.P != null ? Math.round(it.P) : "–"}</span></li>`).join("") || `<li class="none" style="border:0;background:none;display:block">Nothing after this card.</li>`;
+  $("nextList").innerHTML = q.slice(1, 12).map(it => `<li><span class="mono" style="--c:var(--${it.d})">${(DA[it.d] || DA.ada).mono}</span><span class="tx">${esc(it.t)}</span>${it.dl && daysTo(it.dl) <= 7 ? `<span class="v n">due ${daysTo(it.dl) < 0 ? "!" : daysTo(it.dl) + "d"}</span>` : "<span></span>"}</li>`).join("") || `<li class="none" style="border:0;background:none;display:block">Nothing after this card.</li>`;
   const byId = Object.fromEntries(items().map(it => [it.i, it]));
   $("ansList").innerHTML = answers.slice().reverse().map(a => { const it = byId[a.id]; if (!it) return ""; return `<li><span class="mono" style="--c:var(--${it.d})">${(DA[it.d] || DA.ada).mono}</span><span class="tx">${esc(it.t)}</span><span class="v ${a.c}">${esc(verb(a, it))}</span></li>`; }).join("") || `<li class="none" style="border:0;background:none;display:block">Swipe or click a button. Answers stay here until you send.</li>`;
-  void done;
 }
 
 /* ---------- gestures ---------- */
-function bindDrag(card) {
-  let x0 = 0, y0 = 0, dx = 0, dy = 0, t0 = 0, active = false, moved = false;
-  const st = k => card.querySelector(".stamp.s-" + k);
-  const show = () => {
-    const ax = Math.abs(dx), ay = Math.abs(dy);
-    st("y").style.opacity = dx > 0 && ax > ay ? Math.min(dx / 110, 1) : 0;
-    st("n").style.opacity = dx < 0 && ax > ay ? Math.min(-dx / 110, 1) : 0;
-    st("l").style.opacity = dy < 0 && ay > ax ? Math.min(-dy / 100, 1) : 0;
-    st("m").style.opacity = dy > 0 && ay > ax ? Math.min(dy / 100, 1) : 0;
-  };
-  card.addEventListener("pointerdown", e => { if (e.button > 0) return; active = true; moved = false; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; t0 = Date.now(); card.setPointerCapture(e.pointerId); card.classList.add("dragging"); card.classList.remove("settle"); });
-  card.addEventListener("pointermove", e => { if (!active) return; dx = e.clientX - x0; dy = e.clientY - y0; if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+// direction of a drag, by angle (0° = right, 90° = straight up): five upper sectors, anything pointing down = nothing
+function dir(dx, dy) {
+  const a = Math.atan2(-dy, dx) * 180 / Math.PI;
+  if (a >= -55 && a < 28) return "y";
+  if (a >= 28 && a < 62) return "l7";
+  if (a >= 62 && a <= 118) return "l1";
+  if (a > 118 && a <= 152) return "l3";
+  if (a > 152 || a <= -125) return "n";
+  return null;                                    // downward: no action (swipe-down was removed)
+}
+function bindSwipe(card, opt) {
+  const scroller = opt.scroller || null;
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, t0 = 0, sc0 = 0, active = false, moved = false, mode = null;
+  const st = k => $("stampLayer").querySelector(".stamp.s-" + k);
+  const clear = () => $("stampLayer").querySelectorAll(".stamp").forEach(s => s.style.opacity = 0);
+  const show = () => { clear(); const k = dir(dx, dy); if (k) { const s = st(k); if (s) s.style.opacity = Math.min(Math.hypot(dx, dy) / 100, 1); } };
+  const canScroll = () => scroller && scroller.scrollHeight > scroller.clientHeight + 2;
+  card.addEventListener("pointerdown", e => {
+    if (e.button > 0 || e.target.closest("button, textarea, a, select, input")) return;
+    active = true; moved = false; mode = null; x0 = e.clientX; y0 = e.clientY; dx = dy = 0; t0 = Date.now(); sc0 = scroller ? scroller.scrollTop : 0;
+    card.setPointerCapture(e.pointerId); card.classList.add("dragging"); card.classList.remove("settle"); });
+  card.addEventListener("pointermove", e => { if (!active) return; dx = e.clientX - x0; dy = e.clientY - y0;
+    if (!moved && Math.abs(dx) + Math.abs(dy) > 8) {
+      moved = true;
+      const a = Math.abs(Math.atan2(-dy, dx) * 180 / Math.PI);
+      // details only: a mostly-vertical drag scrolls the text when there's more to read
+      mode = canScroll() && a >= 62 && a <= 118 || canScroll() && dy > 0 && Math.abs(dx) < dy ? "scroll" : "swipe";
+    }
+    if (!moved) return;
+    if (mode === "scroll") { scroller.scrollTop = sc0 - dy; return; }
     card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 22}deg)`; show(); });
+  const reset = () => { card.classList.add("settle"); card.style.transform = ""; clear(); };
   const end = () => { if (!active) return; active = false; card.classList.remove("dragging");
-    const dt = Math.max(Date.now() - t0, 1), vx = dx / dt, vy = dy / dt, ax = Math.abs(dx), ay = Math.abs(dy);
-    if (!moved) { reset(); return openMore(); }
-    if (ax > ay && (ax > 110 || Math.abs(vx) > .6)) return decide(dx > 0 ? "y" : "n", card, dx, dy);
-    if (ay > ax && dy < 0 && (ay > 100 || Math.abs(vy) > .6)) return decide("l", card, dx, dy, 1);
-    if (ay > ax && dy > 0 && (ay > 100 || Math.abs(vy) > .6)) { reset(); return openMore(); }
+    if (!moved) { reset(); return opt.onTap && opt.onTap(); }
+    if (mode === "scroll") return;
+    const dt = Math.max(Date.now() - t0, 1), dist = Math.hypot(dx, dy), k = dir(dx, dy);
+    if (k && (dist > 100 || (dist > 30 && dist / dt > .6))) return decide(k[0], card, dx, dy, k[0] === "l" ? +k.slice(1) : undefined);
     reset(); };
-  const reset = () => { card.classList.add("settle"); card.style.transform = ""; card.querySelectorAll(".stamp").forEach(s => s.style.opacity = 0); };
-  card.addEventListener("pointerup", end); card.addEventListener("pointercancel", () => { active = false; reset(); });
+  card.addEventListener("pointerup", end); card.addEventListener("pointercancel", () => { active = false; card.classList.remove("dragging"); reset(); });
 }
 function topCard() { return $("stack").querySelector(".card:not(.behind)"); }
 function decide(c, card, dx, dy, v, text) {
-  const q = queue(); if (!q.length) return; const it = q[0]; card = card || topCard();
+  const q = queue(); if (!q.length) return; const it = q[0];
+  const inDetail = !$("dwrap").hidden; card = card || (inDetail ? $("dwrap").querySelector(".card") : topCard());
   if (c === "l" && !v) v = 1;
   answers = answers.filter(a => a.id !== it.i).concat([{ id: it.i, c, v: c === "t" ? text : c === "l" ? v : undefined }]);
   saveLocal(); haptic(c);
+  const after = () => { if (inDetail) closeMore(true); render(); };
   if (card) {
-    const W = window.innerWidth;
-    const tx = c === "y" ? W : c === "n" ? -W : (dx || 0), ty = c === "l" ? -window.innerHeight : c === "t" ? -window.innerHeight * .2 : (dy || 0);
+    const W = window.innerWidth, H = window.innerHeight;
+    const tx = c === "y" ? W : c === "n" ? -W : c === "l" ? (v === 3 ? -W * .6 : v === 7 ? W * .6 : (dx || 0)) : (dx || 0);
+    const ty = c === "l" ? -H : c === "t" ? -H * .2 : (dy || 0);
     card.classList.add("settle"); card.style.transform = `translate(${tx}px, ${ty}px) rotate(${c === "y" ? 18 : c === "n" ? -18 : 0}deg)`; card.style.opacity = 0;
-    const s = card.querySelector(".stamp.s-" + (c === "t" ? "y" : c)); if (s) s.style.opacity = 1;
-    setTimeout(render, 220);
-  } else render();
+    const L = $("stampLayer"), s = L.querySelector(".stamp.s-" + (c === "t" ? "y" : c === "l" ? "l" + v : c)); if (s) { L.querySelectorAll(".stamp").forEach(x => x.style.opacity = 0); s.style.opacity = 1; }
+    setTimeout(after, 220);
+  } else after();
 }
 function haptic(c) { if (inTg && tg.HapticFeedback && can("6.1")) { try { c === "n" ? tg.HapticFeedback.notificationOccurred("warning") : tg.HapticFeedback.impactOccurred("light"); } catch (e) {} } }
 function undo() { if (!answers.length) return; const a = answers.pop(); saveLocal(); const it = items().find(x => x.i === a.id); if (it && tab !== "all" && it.d !== tab) tab = "all"; render(); toast("Undone"); }
 
-/* ---------- details sheet ---------- */
-function openSheet(html, onClose) {
-  $("sheet").innerHTML = `<div class="grab"></div>` + html; $("scrim").hidden = false;
-  const close = () => { $("scrim").hidden = true; if (inTg && tg.BackButton && can("6.1")) tg.BackButton.hide(); onClose && onClose(); };
-  $("scrim").onclick = e => { if (e.target === $("scrim")) close(); };
-  if (inTg && tg.BackButton && can("6.1")) { tg.BackButton.show(); tg.BackButton.onClick(close); }
-  return close;
+/* ---------- details: the card opened up ---------- */
+let backFn = null;
+function closeMore(silent) {
+  $("dwrap").hidden = true; $("dwrap").innerHTML = "";
+  if (inTg && tg.BackButton && can("6.1")) { if (backFn) tg.BackButton.offClick(backFn); tg.BackButton.hide(); }
+  backFn = null; void silent;
 }
 function openMore() {
-  const it = queue()[0]; if (!it) return; const [yl, nl] = labels(it); const d = DA[it.d] || DA.ada;
-  const close = openSheet(`<div class="meta"><span class="who"><span class="mono" style="--c:var(--${it.d})">${d.mono}</span>${esc(d.name)}</span><span class="kind">${esc(KIND[it.k] || "")}</span></div>
-    <h3>${esc(it.t)}</h3>
-    ${it.pr ? `<div class="field"><span class="lbl">Proposed</span><div>${esc(it.pr)}</div></div>` : ""}
-    ${it.w ? `<div class="field"><span class="lbl">Why</span><div>${esc(it.w)}</div></div>` : ""}
-    ${it.o ? `<div class="field"><span class="lbl">Options / how</span><div>${esc(it.o)}</div></div>` : ""}
-    ${it.s ? `<div class="field"><span class="lbl">If skipped</span><div>${esc(it.s)}</div></div>` : ""}
-    <div class="field"><span class="lbl">Priority</span><div class="idline">P ${it.P ?? "–"} = I ${it.I ?? "–"} × (T ${it.T ?? "–"} + 5) · waiting ${it.a || 0} d${it.dl ? " · due " + esc(it.dl) : ""}</div></div>
-    <div class="field"><span class="lbl">Record</span><div class="idline">${esc(it.i)}${it.h ? " · " + esc(it.h) : ""}</div></div>
-    <div class="choices"><button class="choice y" data-c="y" type="button">${esc(yl)}</button><button class="choice n" data-c="n" type="button">${esc(nl)}</button>
-      ${LATER.map(([v, l]) => `<button class="choice l" data-c="l" data-v="${v}" type="button">${l}</button>`).join("")}</div>
-    <textarea id="reply" placeholder="Or answer in your own words…" maxlength="600"></textarea>
-    <div class="row"><button class="btn" id="cancel" type="button">Back to card</button><button class="btn primary" id="sendReply" type="button">Use this reply</button></div>`);
-  $("sheet").querySelectorAll(".choice").forEach(b => b.onclick = () => { close(); decide(b.dataset.c, null, 0, 0, b.dataset.v ? +b.dataset.v : undefined); });
-  $("cancel").onclick = close;
-  $("sendReply").onclick = () => { const t = $("reply").value.trim(); if (!t) { $("reply").focus(); return; } close(); decide("t", null, 0, 0, undefined, t); };
+  const it = queue()[0]; if (!it) return; const [yl, nl] = labels(it);
+  const W = $("dwrap");
+  W.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-label="${esc(it.t)}" style="--c:var(--${it.d in DA ? it.d : "ada"})"><div class="band"></div>
+    <div class="dscroll">${bodyHTML(it, true)}
+      <div class="dfoot">
+        <div class="choices"><button class="choice n" data-c="n" type="button">${esc(nl)}</button><button class="choice y" data-c="y" type="button">${esc(yl)}</button>
+          ${LATER.map(([v, l]) => `<button class="choice l" data-c="l" data-v="${v}" type="button">${l}</button>`).join("")}</div>
+        <div class="replyrow"><textarea id="reply" rows="2" placeholder="Or answer in your own words…" maxlength="600"></textarea><button class="btn primary" id="sendReply" type="button">Reply</button></div>
+      </div></div></div>`;
+  W.hidden = false;
+  const card = W.querySelector(".card");
+  bindSwipe(card, { scroller: W.querySelector(".dscroll"), onTap: () => closeMore() });
+  W.onclick = e => { if (e.target === W) closeMore(); };
+  W.querySelectorAll(".choice").forEach(b => b.onclick = () => decide(b.dataset.c, card, 0, 0, b.dataset.v ? +b.dataset.v : undefined));
+  $("sendReply").onclick = () => { const t = $("reply").value.trim(); if (!t) { $("reply").focus(); return; } decide("t", card, 0, 0, undefined, t); };
+  if (inTg && tg.BackButton && can("6.1")) { backFn = () => closeMore(); tg.BackButton.show(); tg.BackButton.onClick(backFn); }
+}
+function openSheet(html) {
+  $("sheet").innerHTML = `<div class="grab"></div>` + html; $("scrim").hidden = false;
+  $("scrim").onclick = e => { if (e.target === $("scrim")) $("scrim").hidden = true; };
 }
 
 /* ---------- data out ---------- */
@@ -450,7 +583,7 @@ function send() {
   const why = inTg ? "This deck was opened from a link, not the 📋 keyboard button, so Telegram won't accept answers from it. Open it from the 📋 button under the chat." :
     SNAP && SNAP.demo ? "Example mode: this is what the agents would receive." : "Preview mode (opened in a browser): Telegram isn't here to deliver this. Open the deck from the 📋 button in Telegram.";
   openSheet(`<h3>${answers.length} answer${answers.length > 1 ? "s" : ""} ready</h3><p style="color:var(--muted);margin:0 0 10px">${esc(why)}</p>
-    <div class="payload" id="payload">${esc(s)}</div><p class="idline" style="margin:8px 0 0">${bytes} of ${MAX_BYTES} bytes${trimmed ? " · long replies trimmed to fit" : ""}</p>
+    <div class="payload" id="payload">${esc(s)}</div><p class="idline" style="margin:8px 0 0;text-align:left">${bytes} of ${MAX_BYTES} bytes${trimmed ? " · long replies trimmed to fit" : ""}</p>
     <div class="row"><button class="btn" id="copyP" type="button">Copy</button><button class="btn primary" id="okP" type="button">Close</button></div>`);
   $("copyP").onclick = () => { navigator.clipboard && navigator.clipboard.writeText(s).then(() => toast("Copied"), () => toast("Select the text to copy")); };
   $("okP").onclick = () => { $("scrim").hidden = true; };
@@ -462,7 +595,7 @@ let toastT; function toast(m) { const t = $("toast"); t.textContent = m; t.hidde
 async function boot() {
   if (inTg) {
     try { tg.ready(); tg.expand(); } catch (e) {}
-    if (can("7.7") && tg.disableVerticalSwipes) try { tg.disableVerticalSwipes(); } catch (e) {}   // swipe-down = More, not close
+    if (can("7.7") && tg.disableVerticalSwipes) try { tg.disableVerticalSwipes(); } catch (e) {}   // swipe-up = Later, not close
     if (tg.colorScheme) document.documentElement.setAttribute("data-theme", tg.colorScheme);
     if (tg.MainButton) tg.MainButton.onClick(send);
     if (can("6.2") && tg.enableClosingConfirmation) try { tg.enableClosingConfirmation(); } catch (e) {}
@@ -482,15 +615,15 @@ async function boot() {
     d: Object.prototype.hasOwnProperty.call(DA, it.d) ? it.d : "ada", P: num(it.P), I: num(it.I), T: num(it.T), a: num(it.a) || 0,
     dl: /^\d{4}-\d{2}-\d{2}$/.test(it.dl || "") ? it.dl : undefined }));
   const B = $("banner");
-  if (MODE === "demo") { B.hidden = false; B.innerHTML = "<b>Example deck.</b> These cards are made up. Your real deck opens from the 📋 button in Ada's or Tek's chat."; }
-  else if (MODE === "preview") { B.hidden = false; B.innerHTML = "<b>Preview.</b> Opened outside Telegram, so answers can't be delivered from here."; }
+  if (MODE === "demo") { B.hidden = false; B.classList.add("demo"); B.innerHTML = "<b>Example deck.</b> These cards are made up. Your real deck opens from the 📋 button in Ada's or Tek's chat."; }
+  else if (MODE === "preview") { B.hidden = false; B.classList.add("demo"); B.innerHTML = "<b>Preview.</b> Opened outside Telegram, so answers can't be delivered from here."; }
   const saved = await loadLocal();
   if (saved && saved.length) {
     const ids = new Set(SNAP.items.map(i => i.i)); const keep = saved.filter(a => ids.has(a.id));
     if (saved.sentAt) {
       SENT = new Set(keep.map(a => a.id));
       if (SENT.size) {
-        const B = $("banner"); B.hidden = false;
+        const B = $("banner"); B.hidden = false; B.classList.remove("demo");
         B.innerHTML = `<b>${SENT.size} answer${SENT.size > 1 ? "s" : ""} sent ${esc(ago(saved.sentAt))}.</b> If the agent said it couldn't record them, <button class="btn" id="resend" type="button">show them again</button>`;
         $("resend").onclick = () => { answers = keep; SENT = new Set(); B.hidden = true; render(); toast("Answers back. Press Send when ready."); };
       }
@@ -498,16 +631,20 @@ async function boot() {
     else { answers = keep; if (answers.length) toast(`Restored ${answers.length} unsent answer${answers.length > 1 ? "s" : ""}`); }
   }
   $("doneBtn").onclick = send;
+  $("pickSel").onchange = e => { tab = e.target.value; render(); };
   $("bYes").onclick = () => decide("y"); $("bNo").onclick = () => decide("n"); $("bLater").onclick = () => decide("l", null, 0, 0, 1);
   $("bMore").onclick = openMore; $("bUndo").onclick = undo;
   document.addEventListener("keydown", e => {
     if (!$("scrim").hidden) { if (e.key === "Escape") $("scrim").hidden = true; return; }
     if (e.target && e.target.tagName === "TEXTAREA") return;
-    const k = e.key;
-    if (k === "ArrowRight") decide("y"); else if (k === "ArrowLeft") decide("n"); else if (k === "ArrowUp") decide("l", null, 0, 0, 1);
-    else if (k === "ArrowDown" || k === "Enter" || k === " ") { e.preventDefault(); openMore(); } else if (k === "u" || k === "U" || k === "Backspace") undo();
+    const k = e.key, open = !$("dwrap").hidden;
+    if (k === "Escape" && open) closeMore();
+    else if (k === "ArrowRight") decide("y"); else if (k === "ArrowLeft") decide("n"); else if (k === "ArrowUp") decide("l", null, 0, 0, 1);
+    else if (k === "3") decide("l", null, 0, 0, 3); else if (k === "7" || k === "w") decide("l", null, 0, 0, 7);
+    else if (k === "ArrowDown" || k === "Enter" || k === " ") { e.preventDefault(); open ? closeMore() : openMore(); } else if (k === "u" || k === "U" || k === "Backspace") undo();
     else return; e.preventDefault();
   });
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(render, 120); });
   render();
 }
 boot();
