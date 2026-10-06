@@ -127,7 +127,8 @@ button:focus-visible, [tabindex]:focus-visible, textarea:focus-visible, select:f
   text-transform: uppercase; letter-spacing: .05em; opacity: 0; background: var(--surface); white-space: nowrap; box-shadow: var(--shadow); }
 .stamp.s-y  { left: 20px;  color: var(--yes);   transform: rotate(-8deg); }
 .stamp.s-n  { right: 20px; color: var(--no);    transform: rotate(8deg); }
-.stamp.s-l1 { left: 50%; top: 18%; transform: translateX(-50%); color: var(--later); }
+.stamp.s-left { right: 20px; color: var(--later); transform: rotate(8deg); }   /* left swipe = "Not now" (or "No" on a yes/no card) */
+.stamp.s-d  { left: 50%; top: 18%; transform: translateX(-50%); color: var(--yes); }
 .stamp.s-l3 { right: 20px; color: var(--later); transform: rotate(6deg); }
 .stamp.s-l7 { left: 20px;  color: var(--later); transform: rotate(-6deg); }
 
@@ -164,7 +165,8 @@ button:focus-visible, [tabindex]:focus-visible, textarea:focus-visible, select:f
 .choices { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .choice.y, .choice.n { grid-column: span 3; } .choice.l { grid-column: span 2; font-size: 14px; }
 .choice { border: 1px solid var(--line); background: var(--sunk); border-radius: 12px; padding: 11px 8px; cursor: pointer; font-weight: 700; text-align: center; }
-.choice.y { color: var(--yes); } .choice.n { color: var(--no); } .choice.l { color: var(--later); }
+.choice.y { color: var(--yes); } .choice.n { color: var(--no); } .choice.l { color: var(--later); } .choice.d { color: var(--yes); }
+.choice.wide { grid-column: span 3; font-size: 14px; } .choice.left { grid-column: span 3; font-size: inherit; }
 textarea { width: 100%; min-height: 64px; border-radius: 12px; border: 1px solid var(--line); background: var(--sunk); color: var(--ink); padding: 10px 12px; font: 16px/1.4 var(--f-body); resize: none; user-select: text; -webkit-user-select: text; }
 .replyrow { display: flex; gap: 8px; }
 .replyrow textarea { flex: 1; }
@@ -211,7 +213,7 @@ textarea { width: 100%; min-height: 64px; border-radius: 12px; border: 1px solid
   .rail li .mono { width: 20px; height: 20px; border-radius: 6px; font-size: 10.5px; }
   .rail li .tx { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .rail li .v { font: 500 11px var(--f-mono); color: var(--faint); }
-  .rail li .v.y { color: var(--yes); } .rail li .v.n { color: var(--no); } .rail li .v.l { color: var(--later); } .rail li .v.t { color: var(--more); }
+  .rail li .v.y { color: var(--yes); } .rail li .v.n { color: var(--no); } .rail li .v.l { color: var(--later); } .rail li .v.t { color: var(--more); } .rail li .v.d { color: var(--yes); }
   .rail .none { color: var(--faint); font-size: 13px; padding: 4px 2px; }
   .dwrap { padding-block: 40px; }
 }
@@ -240,8 +242,7 @@ textarea { width: 100%; min-height: 64px; border-radius: 12px; border: 1px solid
   </main>
   <footer class="controls" id="controls">
     <button class="fab small undo" id="bUndo" type="button" aria-label="Undo last answer (U)" title="Undo (U)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
-    <button class="fab big no" id="bNo" type="button" aria-label="Swipe left" title="← key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <button class="fab later" id="bLater" type="button" aria-label="Later: tomorrow (swipe up)" title="↑ key · 3 = 3 days · 7 = next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></button>
+    <button class="fab big later" id="bNo" type="button" aria-label="Not now (swipe left)" title="← key · 3 = 3 days · 7 = next week"></button>
     <button class="fab more" id="bMore" type="button" aria-label="Details (tap the card)" title="↓ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
     <button class="fab big yes" id="bYes" type="button" aria-label="Swipe right" title="→ key"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5L19.5 7"/></svg></button>
     <span class="ghost" aria-hidden="true"></span>
@@ -256,18 +257,22 @@ textarea { width: 100%; min-height: 64px; border-radius: 12px; border: 1px solid
 "use strict";
 /* Decision Deck — Telegram Mini App (DA attention redesign, D-deck). Data in: URL fragment `d=` (raw-deflate JSON, base64url)
    built by ~/.claude/scripts/da-deck-snapshot.py — the host never sees it. Data out: Telegram.WebApp.sendData (≤4096 bytes,
-   keyboard-button launches only), envelope {"v":1,"s":ver,"k":deck,"a":[[id,"y"|"n"],[id,"l",days],[id,"t",text]]}.
+   keyboard-button launches only), envelope {"v":1,"s":ver,"k":deck,"a":[[id,"y"|"d"|"n"],[id,"l",days],[id,"t",text]]}.
    Unsent answers are cached in DeviceStorage (Bot API 9.0+) with a localStorage fallback and re-offered on the next open.
-   Gestures (card and details alike): right = yes · left = no · up = tomorrow · up-left = 3 days · up-right = next week · tap = details/back. */
+   Gestures (card and details alike; CEO 2026-10-03 "do it now"): right = y = DO IT NOW (Start / Approve & apply / Install now —
+   never "mark done") · left = Not now (l 1; on a yes/no card left = its "No", n) · tap = details/back. Swipe-up was removed.
+   Details add ✓ Already done (d), Drop/Reject/Decline (n), 3 days, Next week. Codes: da-answer.py header is the SSOT. */
 const DA = {
   ada: { name: "Ada", mono: "A", role: "chief of staff" }, coach: { name: "Kay", mono: "K", role: "health coach" },
   sosh: { name: "Sosh", mono: "S", role: "social" }, lib: { name: "Lib", mono: "L", role: "library" },
   finn: { name: "Finn", mono: "F", role: "money" }, tek: { name: "Tek", mono: "T", role: "system" } };
 const TAB_ORDER = ["ada", "coach", "sosh", "lib", "finn"];
 const KIND = { todo: "To do", approval: "Approval", installer: "Installer", question: "Question", proposal: "Cleanup proposal" };
-const LABELS = { todo: ["Done", "Drop"], approval: ["Approve", "Reject"], installer: ["Install", "Decline"],
-  question: ["Yes", "No"], proposal: ["Accept", "Keep as is"] };
-const LATER = [[1, "Tomorrow"], [3, "3 days"], [7, "Next week"]];
+const LABELS = { todo: ["Start", "Drop"], approval: ["Approve & apply", "Reject"], installer: ["Install now", "Decline"],
+  question: ["Yes", "No"], proposal: ["Accept", "Keep as is"] };   // [right swipe = do it now, the details' drop/no]
+const LATER = [[3, "3 days"], [7, "Next week"]];                   // details only; "Not now" (left swipe) = tomorrow
+const ICON_X = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`;
+const ICON_CLOCK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>`;
 const MAX_BYTES = 4096;
 
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -335,10 +340,13 @@ const isSystemDeck = () => SNAP && SNAP.deck === "tek";
 function inTab(it) { return tab === "all" ? true : it.d === tab; }
 function queue() { const done = answered(); return items().filter(it => inTab(it) && !done.has(it.i)); }
 function labels(it) { const L = LABELS[it.k] || LABELS.todo; return [it.y || L[0], it.n || L[1]]; }
+const yesNo = it => it.k === "question" || !!it.n;                  // a yes/no card: left answers "No" instead of snoozing
+function leftOf(it) { return yesNo(it) ? { c: "n", lbl: labels(it)[1] } : { c: "l", v: 1, lbl: "Not now" }; }
+const canDone = it => !yesNo(it) && ["todo", "approval", "installer"].includes(it.k || "todo");
 function daysTo(iso) { if (!iso) return null; const d = new Date(iso + "T12:00:00"); return Math.round((d - new Date()) / 864e5); }
 function fmtDate(iso) { try { return new Date(iso + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch (e) { return iso; } }
 function ago(iso) { const m = Math.round((Date.now() - new Date(iso)) / 6e4); if (!isFinite(m)) return ""; if (m < 2) return "just now"; if (m < 60) return m + " min ago"; const h = Math.round(m / 60); return h < 36 ? h + " h ago" : Math.round(h / 24) + " d ago"; }
-function verb(a, it) { if (a.c === "y") return labels(it)[0]; if (a.c === "n") return labels(it)[1]; if (a.c === "l") return "Later +" + a.v + "d"; return "Reply"; }
+function verb(a, it) { if (a.c === "y") return labels(it)[0]; if (a.c === "n") return labels(it)[1]; if (a.c === "d") return "Already done"; if (a.c === "l") return a.v === 1 ? "Not now" : "Later +" + a.v + "d"; return "Reply"; }
 function deckLabel() {
   const dk = SNAP && SNAP.deck || "";
   return SNAP && SNAP.demo ? "Decision Deck · example" : isSystemDeck() ? "Tek · System deck" : dk === "cleanup" ? "Backlog cleanup" : dk.indexOf("canary") === 0 ? "Deck test" : "Ada · Decision deck";
@@ -403,17 +411,18 @@ function detailHTML(it) {
     (it.h ? `<p class="home">Lives in ${esc(it.h)}${/^\d+$/.test(it.x || "") ? " · todo #" + esc(it.x) : ""}</p>` : "");
 }
 function stamps(it) {
-  const [yl, nl] = labels(it);
-  return `<div class="stamp s-y">${esc(yl)}</div><div class="stamp s-n">${esc(nl)}</div>` +
+  const [yl, nl] = labels(it), L = leftOf(it);
+  return `<div class="stamp s-y">${esc(yl)}</div><div class="stamp s-n">${esc(nl)}</div><div class="stamp s-d">Already done</div>` +
+    `<div class="stamp s-left"${L.c === "n" ? ' style="color:var(--no)"' : ""}>${esc(L.lbl)}</div>` +
     LATER.map(([v, l]) => `<div class="stamp s-l${v}">${l}</div>`).join("");
 }
 function cardHTML(it, pos) {
-  const [yl, nl] = labels(it);
+  const yl = labels(it)[0], nl = leftOf(it).lbl, nc = leftOf(it).c === "l" ? ' style="color:var(--later)"' : "";
   return `<div class="card ${pos ? "behind" : ""}" data-id="${esc(it.i)}" style="--c:var(--${it.d in DA ? it.d : "ada"})" tabindex="${pos ? -1 : 0}" aria-label="${esc(it.t)}">
     <div class="band"></div>
     <div class="body">${bodyHTML(it, false)}</div>
     <div class="fade">Tap to read all</div>
-    <div class="hints"><span class="l">← <b>${esc(nl)}</b></span><span class="u">↑ Later · tap for details</span><span class="r"><b>${esc(yl)}</b> →</span></div>
+    <div class="hints"><span class="l"${nc}>← <b>${esc(nl)}</b></span><span class="u">tap for details</span><span class="r"><b>${esc(yl)}</b> →</span></div>
   </div>`;
 }
 // size the card's text to the card: up to 130 % for short items, down to ~80 % for long ones; past that, fade the bottom and point to the details
@@ -459,7 +468,8 @@ function render() {
     });
   }
   $("stampLayer").innerHTML = q.length ? stamps(q[0]) : "";
-  ["bNo", "bYes", "bLater", "bMore"].forEach(id => $(id).disabled = !q.length);
+  ["bNo", "bYes", "bMore"].forEach(id => $(id).disabled = !q.length);
+  if (q.length) { const L = leftOf(q[0]); $("bNo").innerHTML = L.c === "n" ? ICON_X : ICON_CLOCK; $("bNo").className = "fab big " + (L.c === "n" ? "no" : "later"); $("bNo").setAttribute("aria-label", L.lbl + " (swipe left)"); }
   $("bUndo").disabled = !n;
   // rails (wide screens)
   $("nextList").innerHTML = q.slice(1, 12).map(it => `<li><span class="mono" style="--c:var(--${it.d})">${(DA[it.d] || DA.ada).mono}</span><span class="tx">${esc(it.t)}</span>${it.dl && daysTo(it.dl) <= 7 ? `<span class="v n">due ${daysTo(it.dl) < 0 ? "!" : daysTo(it.dl) + "d"}</span>` : "<span></span>"}</li>`).join("") || `<li class="none" style="border:0;background:none;display:block">Nothing after this card.</li>`;
@@ -468,15 +478,12 @@ function render() {
 }
 
 /* ---------- gestures ---------- */
-// direction of a drag, by angle (0° = right, 90° = straight up): five upper sectors, anything pointing down = nothing
+// direction of a drag, by angle (0° = right): right = do it now, left = not now (or "No"); up/down = nothing (swipe-up removed 2026-10-06)
 function dir(dx, dy) {
   const a = Math.atan2(-dy, dx) * 180 / Math.PI;
-  if (a >= -55 && a < 28) return "y";
-  if (a >= 28 && a < 62) return "l7";
-  if (a >= 62 && a <= 118) return "l1";
-  if (a > 118 && a <= 152) return "l3";
-  if (a > 152 || a <= -125) return "n";
-  return null;                                    // downward: no action (swipe-down was removed)
+  if (a >= -55 && a < 45) return "y";
+  if (a > 135 || a <= -125) return "left";
+  return null;
 }
 function bindSwipe(card, opt) {
   const scroller = opt.scroller || null;
@@ -504,7 +511,7 @@ function bindSwipe(card, opt) {
     if (!moved) { reset(); return opt.onTap && opt.onTap(); }
     if (mode === "scroll") return;
     const dt = Math.max(Date.now() - t0, 1), dist = Math.hypot(dx, dy), k = dir(dx, dy);
-    if (k && (dist > 100 || (dist > 30 && dist / dt > .6))) return decide(k[0], card, dx, dy, k[0] === "l" ? +k.slice(1) : undefined);
+    if (k && (dist > 100 || (dist > 30 && dist / dt > .6))) return decide(k, card, dx, dy);
     reset(); };
   card.addEventListener("pointerup", end); card.addEventListener("pointercancel", () => { active = false; card.classList.remove("dragging"); reset(); });
 }
@@ -512,16 +519,18 @@ function topCard() { return $("stack").querySelector(".card:not(.behind)"); }
 function decide(c, card, dx, dy, v, text) {
   const q = queue(); if (!q.length) return; const it = q[0];
   const inDetail = !$("dwrap").hidden; card = card || (inDetail ? $("dwrap").querySelector(".card") : topCard());
+  const left = c === "left"; if (left) { const L = leftOf(it); c = L.c; v = L.v; }
+  if (c === "d" && !canDone(it)) return;
   if (c === "l" && !v) v = 1;
   answers = answers.filter(a => a.id !== it.i).concat([{ id: it.i, c, v: c === "t" ? text : c === "l" ? v : undefined }]);
   saveLocal(); haptic(c);
   const after = () => { if (inDetail) closeMore(true); render(); };
   if (card) {
     const W = window.innerWidth, H = window.innerHeight;
-    const tx = c === "y" ? W : c === "n" ? -W : c === "l" ? (v === 3 ? -W * .6 : v === 7 ? W * .6 : (dx || 0)) : (dx || 0);
-    const ty = c === "l" ? -H : c === "t" ? -H * .2 : (dy || 0);
-    card.classList.add("settle"); card.style.transform = `translate(${tx}px, ${ty}px) rotate(${c === "y" ? 18 : c === "n" ? -18 : 0}deg)`; card.style.opacity = 0;
-    const L = $("stampLayer"), s = L.querySelector(".stamp.s-" + (c === "t" ? "y" : c === "l" ? "l" + v : c)); if (s) { L.querySelectorAll(".stamp").forEach(x => x.style.opacity = 0); s.style.opacity = 1; }
+    const tx = c === "y" || c === "d" ? W : left || c === "n" ? -W : c === "l" ? (v === 3 ? -W * .6 : W * .6) : (dx || 0);
+    const ty = c === "l" && !left ? -H : c === "t" ? -H * .2 : (dy || 0);
+    card.classList.add("settle"); card.style.transform = `translate(${tx}px, ${ty}px) rotate(${c === "y" || c === "d" ? 18 : left || c === "n" ? -18 : 0}deg)`; card.style.opacity = 0;
+    const L = $("stampLayer"), s = L.querySelector(".stamp.s-" + (left ? "left" : c === "t" ? "y" : c === "l" ? "l" + v : c)); if (s) { L.querySelectorAll(".stamp").forEach(x => x.style.opacity = 0); s.style.opacity = 1; }
     setTimeout(after, 220);
   } else after();
 }
@@ -536,13 +545,14 @@ function closeMore(silent) {
   backFn = null; void silent;
 }
 function openMore() {
-  const it = queue()[0]; if (!it) return; const [yl, nl] = labels(it);
+  const it = queue()[0]; if (!it) return; const [yl, nl] = labels(it), L = leftOf(it);
   const W = $("dwrap");
   W.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-label="${esc(it.t)}" style="--c:var(--${it.d in DA ? it.d : "ada"})"><div class="band"></div>
     <div class="dscroll">${bodyHTML(it, true)}
       <div class="dfoot">
-        <div class="choices"><button class="choice n" data-c="n" type="button">${esc(nl)}</button><button class="choice y" data-c="y" type="button">${esc(yl)}</button>
-          ${LATER.map(([v, l]) => `<button class="choice l" data-c="l" data-v="${v}" type="button">${l}</button>`).join("")}</div>
+        <div class="choices"><button class="choice left ${L.c === "n" ? "n" : "l"}" data-c="left" type="button">${esc(L.lbl)}</button><button class="choice y" data-c="y" type="button">${esc(yl)}</button>
+          ${canDone(it) ? `<button class="choice d wide" data-c="d" type="button">✓ Already done</button><button class="choice n wide" data-c="n" type="button">${esc(nl)}</button>` : ""}
+          ${LATER.map(([v, l]) => `<button class="choice l wide" data-c="l" data-v="${v}" type="button">${l}</button>`).join("")}</div>
         <div class="replyrow"><textarea id="reply" rows="2" placeholder="Or answer in your own words…" maxlength="600"></textarea><button class="btn primary" id="sendReply" type="button">Reply</button></div>
       </div></div></div>`;
   W.hidden = false;
@@ -632,14 +642,14 @@ async function boot() {
   }
   $("doneBtn").onclick = send;
   $("pickSel").onchange = e => { tab = e.target.value; render(); };
-  $("bYes").onclick = () => decide("y"); $("bNo").onclick = () => decide("n"); $("bLater").onclick = () => decide("l", null, 0, 0, 1);
+  $("bYes").onclick = () => decide("y"); $("bNo").onclick = () => decide("left");
   $("bMore").onclick = openMore; $("bUndo").onclick = undo;
   document.addEventListener("keydown", e => {
     if (!$("scrim").hidden) { if (e.key === "Escape") $("scrim").hidden = true; return; }
     if (e.target && e.target.tagName === "TEXTAREA") return;
     const k = e.key, open = !$("dwrap").hidden;
     if (k === "Escape" && open) closeMore();
-    else if (k === "ArrowRight") decide("y"); else if (k === "ArrowLeft") decide("n"); else if (k === "ArrowUp") decide("l", null, 0, 0, 1);
+    else if (k === "ArrowRight") decide("y"); else if (k === "ArrowLeft") decide("left"); else if (k === "d" || k === "D") decide("d");
     else if (k === "3") decide("l", null, 0, 0, 3); else if (k === "7" || k === "w") decide("l", null, 0, 0, 7);
     else if (k === "ArrowDown" || k === "Enter" || k === " ") { e.preventDefault(); open ? closeMore() : openMore(); } else if (k === "u" || k === "U" || k === "Backspace") undo();
     else return; e.preventDefault();
