@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pantry Review</title>
+<script src="telegram-web-app.js"></script>
+<style>
+/* Pantry review — Telegram Mini App beside the DA deck (same host). Phone first; one column, max 760px on desktop. */
+:root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1f;--muted:#6b6b70;--line:#e3e1dc;--chip:#eef2f8;--chip-ink:#1f4f8f;--on:#1f4f8f;--on-ink:#fff;
+  --hot:#b3261e;--warn:#9a6100;--week:#5b5bb0;--ok:#1e7a3c;--edit:#fff6dc;--gone:#f6e3e1;--accent:#3b5bdb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--card:#1e1e22;--ink:#ececf0;--muted:#a0a0a8;--line:#33333a;
+  --chip:#24384f;--chip-ink:#9cc8f5;--on:#9cc8f5;--on-ink:#10161d;--hot:#ff8a80;--warn:#f0b54a;--week:#a9a9f5;--ok:#6fd38f;--edit:#3a3320;--gone:#3d2522;--accent:#8ea2ff}}
+:root[data-theme="dark"]{--bg:#141416;--card:#1e1e22;--ink:#ececf0;--muted:#a0a0a8;--line:#33333a;
+  --chip:#24384f;--chip-ink:#9cc8f5;--on:#9cc8f5;--on-ink:#10161d;--hot:#ff8a80;--warn:#f0b54a;--week:#a9a9f5;--ok:#6fd38f;--edit:#3a3320;--gone:#3d2522;--accent:#8ea2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:760px;margin:0 auto;padding:16px 16px 110px}
+h1{font-size:1.45rem;margin:4px 0 2px}
+h2{font-size:1.02rem;margin:22px 0 8px;display:flex;align-items:baseline;gap:8px}
+h2 small{font-weight:400;color:var(--muted);font-size:.82rem}
+.sub{color:var(--muted);margin:0 0 12px;font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}
+.lead{border-left:4px solid var(--accent)}
+ul.week{margin:6px 0 0;padding-left:18px}ul.week li{margin:2px 0}
+.item{border-top:1px solid var(--line);padding:9px 0}
+.item:first-child{border-top:0}
+.row{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.flagbtn{flex:none;width:2.1em;height:2.1em;padding:0;margin-top:-3px;border-radius:50%;background:transparent;border:1px dashed var(--line);font-size:1rem;line-height:1}
+.flagbtn.has{border-color:transparent}
+.txt{flex:1;min-width:0}
+.menu{position:absolute;z-index:8;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:4px;display:flex;flex-direction:column;min-width:170px}
+.menu button{background:transparent;color:var(--ink);text-align:left;padding:8px 10px}
+.menu button.on{background:var(--chip);color:var(--chip-ink)}
+.name{font-weight:600}
+.meta{color:var(--muted);font-size:.86rem}
+.idea{font-size:.9rem;margin-top:3px}
+.idea::before{content:"💡 "}
+.item.edited{background:var(--edit);margin:0 -14px;padding:9px 14px}
+.item.gone{background:var(--gone);margin:0 -14px;padding:9px 14px}
+.item.gone .name{text-decoration:line-through}
+.changed{font-size:.84rem;color:var(--ok);margin-top:3px}
+.ed{display:none;margin:8px 0 2px 2.2em}
+.item.open .ed{display:block}
+.ed label{display:block;font-size:.8rem;color:var(--muted);margin:6px 0 2px}
+input[type=text],textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea{min-height:70px;resize:vertical}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+button{font:inherit;font-size:.9rem;border:0;border-radius:8px;padding:7px 12px;background:var(--chip);color:var(--chip-ink);cursor:pointer}
+button.on{background:var(--on);color:var(--on-ink)}
+button.quiet{background:transparent;color:var(--muted);padding:7px 6px}
+details{margin:6px 0}
+summary{cursor:pointer;font-weight:600;padding:4px 0}
+.q{padding:8px 0;border-top:1px solid var(--line)}.q:first-of-type{border-top:0}
+.shop li{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:4px 0}
+.shop ul{list-style:none;padding:0;margin:4px 0}
+.shop .x{text-decoration:line-through;color:var(--muted)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;align-items:center;justify-content:center}
+.bar button{font-size:1rem;padding:10px 18px}
+.bar .count{color:var(--muted);font-size:.9rem}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:9}
+.sheet>div{background:var(--card);max-width:760px;width:100%;border-radius:14px 14px 0 0;padding:16px;max-height:80vh;overflow:auto}
+.payload{white-space:pre-wrap;font:13px/1.4 ui-monospace,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:46vh;overflow:auto}
+.hot{color:var(--hot)}.warn{color:var(--warn)}.wk{color:var(--week)}
+.legend{font-size:.84rem;color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Pantry review</h1>
+  <p class="sub" id="sub">Loading…</p>
+  <div class="card lead" id="lead" hidden></div>
+  <section id="qs" hidden><h2>Ada's questions <small>tap one answer each, or skip</small></h2><div class="card" id="qlist"></div></section>
+  <section id="use" hidden><h2>Use these first <small>tap a line to change it</small></h2><div class="card" id="uselist"></div>
+    <p class="legend">‼️ use now · ⚠️ use soon · ⏳ use this week · tap the flag (or the • dot) on any line to change it</p></section>
+  <div id="secs"></div>
+  <h2>Anything new? <small>one per line, e.g. "2 avocados, fridge"</small></h2>
+  <div class="card"><textarea id="adds" placeholder="Something you bought or found that isn't listed"></textarea></div>
+  <section class="shop"><h2>Shopping list</h2><div class="card" id="shop"></div></section>
+  <h2>Anything else for Ada?</h2>
+  <div class="card"><textarea id="note" placeholder="Optional"></textarea></div>
+</main>
+<div class="bar" id="bar"><span class="count" id="count">No changes yet</span><button class="on" id="done" type="button">Done</button></div>
+<div class="sheet" id="sheet" hidden><div id="sheetBody"></div></div>
+<script>
+"use strict";
+/* Data in: URL fragment `d=` = base64url(raw-deflate(JSON)) built by food/70-scripts/pantry-check.py `review` — the host never
+   sees it. Item rows: [line, flag, name, amount, inMMDD, note, ageDays, idea, stapleGroup].
+   Tap the flag/dot on a line → menu to set ‼️/⚠️/⏳/none (Spencer 2026-10-21); tap the name → amount, date, note, gone.
+   Data out: Telegram.WebApp.sendData (≤4096 bytes, keyboard-button launches only) →
+   {"v":1,"k":"pantry","s":ver,"a":[],"e":["<one plain line per change>"]}; ~/.claude/scripts/da-answer.py relays it to Ada. */
+const MAX = 4096, PERISH = ["Fridge", "Freezer", "Counter & shelf"];
+const tg = window.Telegram && window.Telegram.WebApp;
+const inTg = !!(tg && tg.initData !== undefined && tg.platform && tg.platform !== "unknown");
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let S = null, E = {}, QA = {}, SHOPX = {}, KEY = "pantry-review";
+
+function hashParam(n){const h=(location.hash||"").replace(/^#/,"");for(const p of h.split(/[&?]/)){const i=p.indexOf("=");if(i>0&&p.slice(0,i)===n)return p.slice(i+1);}return null;}
+function b64u(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+async function decode(d){
+  if(typeof DecompressionStream==="undefined")throw new Error("This Telegram version can't open the review. Update Telegram.");
+  return JSON.parse(await new Response(new Blob([b64u(d)]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text());
+}
+function demo(){ // FICTIONAL example only: this file is public, so nothing here may echo a real pantry
+  return {v:1,ver:"demo",gen:new Date().toISOString().slice(0,10),demo:true,sum:"Example week: the leeks became soup and the feta is waiting.",
+    week:["Cooked: leek and potato soup","Used up: the spinach"],
+    q:[{i:"qdemo",item:"FETA",t:"The feta from last week: still in the fridge?",b:["Still there","Used it","Other"]}],
+    sec:[["Fridge",[[1,"⚠️","FETA, crumbled","4oz","10-01","",12,"Feta and herb omelet, 10 minutes",""],[2,"⏳","CARROTS","5","10-08","",5,"",""],[3,"","LEMONS","2","10-10","",3,"",""]]],
+      ["Freezer",[[5,"","PEAS, frozen","1 bag","","",-1,"",""]]],["Staples (assume freely)",[[8,"","RICE, basmati","","","",-1,"","Rice, noodles & carbs"]]]],
+    shop:{need:["MILK"],cart:["BREAD"]}};
+}
+function all(){return S.sec.flatMap(([sec,rows])=>rows.map(r=>({sec,r})));}
+function key(r){return String(r[0]);}
+function fl(f){return f?`<span class="${f==="‼️"?"hot":f==="⚠️"?"warn":"wk"}">${f}</span>`:`<span class="meta">•</span>`;}
+const FLAGS=[["‼️","Use now"],["⚠️","Use soon"],["⏳","Use this week"],["","No flag"]];
+function curFlag(r){const e=E[key(r)]||{};return e.flag!==undefined?e.flag:r[1];}
+function meta(r){const p=[];if(r[3])p.push(r[3]);if(r[4])p.push("in "+r[4]+(r[6]>=0?` · day ${r[6]}`:""));if(r[5])p.push(r[5]);return p.join(" · ");}
+function changes(r){const e=E[key(r)]||{};const out=[];
+  if(e.flag!==undefined&&e.flag!==r[1])out.push(`flag ${r[1]||"none"} → ${e.flag||"none"}`);
+  if(e.move)out.push(`move to ${e.move}`);
+  if(e.gone)out.push("gone");if(e.good)out.push("still good");
+  if(e.amt!==undefined&&e.amt!==r[3])out.push(`amount ${r[3]||"—"} → ${e.amt||"—"}`);
+  if(e.inn!==undefined&&e.inn!==r[4])out.push(`in-date ${r[4]||"—"} → ${e.inn||"—"}`);
+  if(e.note!==undefined&&e.note!==r[5])out.push(`note → ${e.note||"(none)"}`);return out;}
+function itemHTML(sec,r,withIdea){
+  const k=key(r),c=changes(r),e=E[k]||{},perish=PERISH.includes(sec);
+  return `<div class="item${e.gone?" gone":c.length?" edited":""}" data-k="${k}">
+    <div class="row"><button type="button" class="flagbtn${curFlag(r)?" has":""}" data-flagk="${k}" aria-label="Change flag">${fl(curFlag(r))}</button><div class="txt" data-tog="${k}"><div class="name">${esc(r[2])}</div>
+      <div class="meta">${esc(meta(r))}</div>${withIdea&&r[7]?`<div class="idea">${esc(r[7])}</div>`:""}
+      ${c.length?`<div class="changed">✓ ${esc(c.join(" · "))}</div>`:""}</div></div>
+    <div class="ed"><label>Amount</label><input type="text" data-f="amt" value="${esc(e.amt!==undefined?e.amt:r[3])}" placeholder="e.g. ~10, half a bag">
+      ${perish?`<label>In since (MM-DD)</label><input type="text" data-f="inn" value="${esc(e.inn!==undefined?e.inn:r[4])}" placeholder="MM-DD" inputmode="numeric">`:""}
+      ${perish?`<label>Move to</label><div class="btns" style="margin-top:2px">${PERISH.filter(x=>x!==sec).map(x=>`<button type="button" data-move="${x}" class="${e.move===x?"on":""}">${x}</button>`).join("")}</div>`:""}
+      <label>Note</label><input type="text" data-f="note" value="${esc(e.note!==undefined?e.note:r[5])}">
+      <div class="btns"><button type="button" data-act="gone" class="${e.gone?"on":""}">Gone / used up</button>
+        ${r[1]?`<button type="button" data-act="good" class="${e.good?"on":""}">Still good</button>`:""}
+        <button type="button" class="quiet" data-act="undo">Undo</button><button type="button" class="quiet" data-act="close">Close</button></div></div></div>`;
+}
+function render(){
+  const old=!S.demo&&(Date.now()-new Date(S.gen+"T12:00:00").getTime())>2*864e5;
+  $("sub").textContent=(S.demo?"Example data · ":"")+(old?"⚠ This is the pantry as of "+S.gen+". Tell Ada \"review the pantry\" for a fresh one · ":"Pantry as of "+S.gen+" · ")+"tap any line to fix it, then Done";
+  if(S.sum||(S.week||[]).length){$("lead").hidden=false;$("lead").innerHTML=`${esc(S.sum||"")}${(S.week||[]).length?`<ul class="week">${S.week.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>`:""}`;}
+  $("qs").hidden=!(S.q||[]).length;
+  $("qlist").innerHTML=(S.q||[]).map(q=>`<div class="q" data-q="${esc(q.i)}"><div>${esc(q.t)}</div><div class="btns">${q.b.map(b=>
+    `<button type="button" data-qa="${esc(b)}" class="${QA[q.i]&&(QA[q.i].b===b)?"on":""}">${esc(b)}</button>`).join("")}</div>
+    ${QA[q.i]&&QA[q.i].b==="Other"?`<input type="text" data-qt="1" placeholder="Tell Ada" value="${esc(QA[q.i].t||"")}" style="margin-top:6px">`:""}</div>`).join("");
+  const flagged=all().filter(x=>x.r[1]&&PERISH.includes(x.sec));
+  $("use").hidden=!flagged.length;
+  $("uselist").innerHTML=flagged.map(x=>itemHTML(x.sec,x.r,true)).join("");
+  $("secs").innerHTML=S.sec.map(([sec,rows])=>{
+    if(!PERISH.includes(sec)){const groups={};rows.forEach(r=>(groups[r[8]||sec]=groups[r[8]||sec]||[]).push(r));
+      const n=rows.filter(r=>changes(r).length).length;
+      return `<h2>${esc(sec)} <small>${rows.length} lines${n?` · ${n} changed`:""}</small></h2><div class="card">${Object.entries(groups).map(([g,rs])=>
+        `<details${rs.some(r=>changes(r).length)?" open":""}><summary>${esc(g)} <small class="meta">(${rs.length})</small></summary>${rs.map(r=>itemHTML(sec,r,false)).join("")}</details>`).join("")}</div>`;}
+    const rest=rows.filter(r=>!r[1]);if(!rest.length)return "";
+    return `<h2>${esc(sec)} <small>${rest.length} more</small></h2><div class="card">${rest.map(r=>itemHTML(sec,r,false)).join("")}</div>`;}).join("");
+  const sh=S.shop||{need:[],cart:[]};
+  $("shop").innerHTML=`<div class="meta">Need</div><ul>${(sh.need||[]).map((x,i)=>`<li><span class="${SHOPX["n"+i]?"x":""}">${esc(x)}</span>
+    <button type="button" class="quiet" data-shop="n${i}">${SHOPX["n"+i]?"Keep":"Remove"}</button></li>`).join("")||"<li class=meta>(nothing)</li>"}</ul>
+    ${(sh.cart||[]).length?`<div class="meta">Already in your next Walmart cart</div><ul>${sh.cart.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+    <label class="meta" style="display:block;margin-top:6px">Add to the list</label><input type="text" id="shopAdd" placeholder="e.g. milk, 2 lemons" value="${esc(SHOPX.add||"")}">`;
+  count();
+}
+function lines(){
+  const out=[];
+  (S.q||[]).forEach(q=>{const a=QA[q.i];if(a&&a.b)out.push(`Q "${q.t}" → ${a.b==="Other"?(a.t?"Other: "+a.t:"Other"):a.b}`);});
+  all().forEach(({sec,r})=>{const c=changes(r);if(c.length)out.push(`${r[2]} (${sec}${r[3]?", "+r[3]:""}${r[4]?", in "+r[4]:""}${r[6]>=0?", day "+r[6]:""}): ${c.join("; ")}`);});
+  $("adds").value.split("\n").map(s=>s.trim()).filter(Boolean).forEach(s=>out.push("ADD: "+s));
+  const sh=S.shop||{need:[]};(sh.need||[]).forEach((x,i)=>{if(SHOPX["n"+i])out.push("SHOPPING remove: "+x);});
+  (SHOPX.add||"").split(/[,;\n]/).map(s=>s.trim()).filter(Boolean).forEach(s=>out.push("SHOPPING add: "+s));
+  const n=$("note").value.trim();if(n)out.push("NOTE: "+n);
+  return out;
+}
+function count(){const n=lines().length;$("count").textContent=n?`${n} change${n>1?"s":""}`:"No changes yet";
+  if(inTg&&tg.MainButton){tg.MainButton.setText(n?`Done · ${n} change${n>1?"s":""}`:"Done · no changes");tg.MainButton.show();}
+  try{localStorage.setItem(KEY,JSON.stringify({E,QA,SHOPX,adds:$("adds").value,note:$("note").value}));}catch(e){}}
+function envelope(){const env={v:1,k:"pantry",s:S.ver||"",a:[],e:lines()};let s=JSON.stringify(env);const enc=new TextEncoder();
+  while(enc.encode(s).length>MAX&&env.e.length){const i=env.e.reduce((m,x,j,a)=>x.length>a[m].length?j:m,0);if(env.e[i].length<60)break;env.e[i]=env.e[i].slice(0,Math.floor(env.e[i].length*.8))+"…";s=JSON.stringify(env);}
+  return {s,bytes:enc.encode(s).length,n:env.e.length};}
+function sheet(h){$("sheetBody").innerHTML=h;$("sheet").hidden=false;}
+function done(){
+  const {s,bytes,n}=envelope();
+  if(!n){sheet(`<h3>No changes</h3><p class="meta">Everything looks right? Then you're done. Ada keeps the pantry as it is.</p><div class="btns">${inTg?`<button class="on" id="okAll" type="button">Tell Ada it all looks right</button>`:""}<button id="shut" type="button">Back</button></div>`);
+    $("shut").onclick=()=>$("sheet").hidden=true;if($("okAll"))$("okAll").onclick=()=>{try{tg.sendData(JSON.stringify({v:1,k:"pantry",s:S.ver||"",a:[],e:["NOTE: all looks right"]}));}catch(e){}};return;}
+  if(bytes>MAX)return sheet(`<h3>Too much for one send</h3><p>Shorten the notes a little, then press Done again.</p><button id="shut" type="button">Back</button>`),$("shut").onclick=()=>$("sheet").hidden=true;
+  if(inTg&&typeof tg.sendData==="function"&&!(tg.initDataUnsafe&&tg.initDataUnsafe.query_id)){try{localStorage.removeItem(KEY);}catch(e){}tg.sendData(s);return;}
+  const why=inTg?"This page was opened from a link, so Telegram won't take the send. Open it from the 🧺 Pantry button under Ada's chat.":
+    S.demo?"Example mode: this is what Ada would receive.":"Preview (opened in a browser): in Telegram, Done sends exactly this to Ada, who updates pantry.md and replies with what changed.";
+  sheet(`<h3>${n} change${n>1?"s":""} ready for Ada</h3><p class="meta">${esc(why)}</p><div class="payload">${esc(JSON.parse(s).e.map(x=>"• "+x).join("\n"))}</div>
+    <p class="meta">${bytes} of ${MAX} bytes</p><div class="btns"><button class="on" id="shut" type="button">Close</button></div>`);$("shut").onclick=()=>$("sheet").hidden=true;
+}
+function closeMenu(){const m=$("menu");if(m)m.remove();}
+function openMenu(btn){closeMenu();const k=btn.dataset.flagk,r=all().find(x=>key(x.r)===k).r,cur=curFlag(r);
+  const m=document.createElement("div");m.className="menu";m.id="menu";
+  m.innerHTML=FLAGS.map(([f,l])=>`<button type="button" data-setflag="${f}" data-k="${k}" class="${f===cur?"on":""}">${f||"•"}&nbsp; ${l}</button>`).join("")+`<div class="meta" style="padding:4px 10px 6px;font-size:.78rem">Tap the selected one again to clear it</div>`;
+  document.body.appendChild(m);const b=btn.getBoundingClientRect();m.style.left=(b.left+window.scrollX)+"px";m.style.top=(b.bottom+window.scrollY+4)+"px";}
+document.addEventListener("click",ev=>{
+  const t=ev.target;const fb=t.closest("[data-flagk]");if(fb){openMenu(fb);return;}
+  const sf=t.closest("[data-setflag]");
+  if(sf){const k=sf.dataset.k,r=all().find(x=>key(x.r)===k).r,e=E[k]=E[k]||{};
+    const f=sf.dataset.setflag&&sf.dataset.setflag===curFlag(r)?"":sf.dataset.setflag;   // tap the selected one again = clear it
+    if(f===r[1])delete e.flag;else e.flag=f;if(!Object.keys(e).length)delete E[k];closeMenu();render();return;}
+  closeMenu();
+  const it=t.closest(".item");
+  if(t.closest("[data-tog]")&&it){it.classList.toggle("open");return;}
+  if(t.dataset.move&&it){const k=it.dataset.k,e=E[k]=E[k]||{};e.move=e.move===t.dataset.move?undefined:t.dataset.move;
+    if(!e.move)delete e.move;if(!Object.keys(e).length)delete E[k];render();document.querySelectorAll(`.item[data-k="${k}"]`).forEach(x=>x.classList.add("open"));return;}
+  if(t.dataset.act&&it){const k=it.dataset.k,e=E[k]=E[k]||{};
+    if(t.dataset.act==="gone"){e.gone=!e.gone;if(e.gone)e.good=false;}
+    if(t.dataset.act==="good"){e.good=!e.good;if(e.good)e.gone=false;}
+    if(t.dataset.act==="undo")delete E[k];
+    const open=t.dataset.act!=="close"&&t.dataset.act!=="gone";render();if(open)document.querySelectorAll(`.item[data-k="${k}"]`).forEach(x=>x.classList.add("open"));return;}
+  if(t.dataset.qa){const q=t.closest("[data-q]").dataset.q;QA[q]=QA[q]&&QA[q].b===t.dataset.qa?null:{b:t.dataset.qa,t:(QA[q]||{}).t||""};render();return;}
+  if(t.dataset.shop){SHOPX[t.dataset.shop]=!SHOPX[t.dataset.shop];render();return;}
+  if(t.closest("#sheet")&&t.id==="sheet")$("sheet").hidden=true;
+});
+document.addEventListener("change",ev=>{const t=ev.target,it=t.closest(".item");
+  if(t.dataset.f&&it){const e=E[it.dataset.k]=E[it.dataset.k]||{};e[t.dataset.f]=t.value.trim();const k=it.dataset.k;render();document.querySelectorAll(`.item[data-k="${k}"]`).forEach(x=>x.classList.add("open"));}
+  if(t.dataset.qt){QA[t.closest("[data-q]").dataset.q].t=t.value.trim();count();}
+  if(t.id==="shopAdd"){SHOPX.add=t.value;count();}
+  if(t.id==="adds"||t.id==="note")count();});
+document.addEventListener("input",ev=>{if(["adds","note"].includes(ev.target.id))count();});
+$("done").onclick=done;
+(async function boot(){
+  if(inTg){try{tg.ready();tg.expand();}catch(e){}if(tg.colorScheme)document.documentElement.setAttribute("data-theme",tg.colorScheme);
+    if(tg.MainButton){tg.MainButton.onClick(done);$("bar").hidden=true;}}
+  const d=hashParam("d");
+  try{S=d?await decode(d):demo();}catch(e){$("sub").textContent="Couldn't open this review: "+e.message;return;}
+  KEY="pantry-review-"+(S.ver||"demo");
+  try{const c=JSON.parse(localStorage.getItem(KEY)||"null");if(c){E=c.E||{};QA=c.QA||{};SHOPX=c.SHOPX||{};$("adds").value=c.adds||"";$("note").value=c.note||"";}}catch(e){}
+  render();
+})();
+</script>
+</body>
+</html>
