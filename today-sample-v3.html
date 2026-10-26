@@ -145,7 +145,7 @@ function listB(m,L,key,open,extra){const d=el("details");if(open)d.open=true;con
   upd();m.appendChild(d);}
 function ptB(m,set){const P=C.pt,n=P.sets||3,k=ptKey(set);
   listB(m,Object.assign({},P,{n:"PT set "+set+" of "+n+" · today "+ptSets()+"/"+n+" sets"}),k,phase==="ready"&&!ptDone(set)&&T().blocks[0].type==="pt",d=>{
-    if(P.link){const p=el("div","mu");const a=el("a","lnk","Exercise videos (MedBridge)");a.href=P.link;a.target="_blank";
+    if(P.link){const p=el("div","mu");const a=el("a","lnk","Exercise videos");a.href=P.link;a.target="_blank";
       a.onclick=e=>{if(inTg&&tg.openLink){e.preventDefault();tg.openLink(P.link);}};p.appendChild(a);if(P.code)p.appendChild(document.createTextNode(" · code "+P.code));d.appendChild(p);}
     const st=S.t[k]=S.t[k]||{};if(!ptDone(set)){const b=el("button","btn alt","✓ Did the whole set");b.onclick=()=>{pairs(P).forEach(([,q])=>st[q]=1);save();haptic("medium");render();};d.appendChild(b);}});}
 function render(){tabs();const m=$("main");m.innerHTML="";const t=T();
