@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SAMPLE v2 · Today</title>
+<script src="telegram-web-app.js"></script>
+<style>
+:root{--bg:var(--tg-theme-bg-color,#fff);--tx:var(--tg-theme-text-color,#16181d);--mu:var(--tg-theme-hint-color,#7a7f8a);
+--ac:var(--tg-theme-button-color,#2f7de1);--act:var(--tg-theme-button-text-color,#fff);--card:var(--tg-theme-secondary-bg-color,#f2f3f6);--ok:#2e9e5b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:var(--tg-theme-bg-color,#17191d);--tx:var(--tg-theme-text-color,#eceef2);
+--mu:var(--tg-theme-hint-color,#8b919c);--card:var(--tg-theme-secondary-bg-color,#22252b)}}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:12px 16px 96px;-webkit-tap-highlight-color:transparent}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+h1{font-size:22px;margin:0}.tag{font-size:11px;color:var(--mu);border:1px solid var(--mu);border-radius:6px;padding:1px 6px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{flex:1;padding:9px 4px;border:0;border-radius:10px;background:var(--card);color:var(--tx);font-size:15px}
+.tabs button.on{background:var(--ac);color:var(--act);font-weight:600}
+.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px}
+.mu{color:var(--mu);font-size:14px}.big{font-size:24px;font-weight:700;margin:2px 0 6px}
+.btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--ac);color:var(--act);font-size:17px;font-weight:600;margin-top:10px}
+.btn.alt{background:var(--bg);color:var(--tx);font-weight:500}.row2{display:flex;gap:8px}.row2 .btn{flex:1}
+.mood{display:flex;gap:6px;margin-top:8px}.mood button{flex:1;padding:11px 0;border:0;border-radius:10px;background:var(--bg);color:var(--tx);font-size:17px}
+.mood button.on{background:var(--ac);color:var(--act);font-weight:700}
+.dots{display:flex;gap:6px;margin:8px 0 2px}.dot{flex:1;height:6px;border-radius:3px;background:color-mix(in srgb,var(--mu) 30%,transparent)}
+.dot.on{background:var(--ok)}.dot.cur{background:var(--ac)}
+.timer{font-size:56px;font-weight:700;text-align:center;margin:8px 0 0;font-variant-numeric:tabular-nums}
+.side{text-align:center;font-weight:600;color:var(--ac);min-height:22px}
+.how{font-size:16px;margin-top:4px}
+.party{text-align:center;padding:26px 16px}.party .em{font-size:64px;line-height:1}
+details{background:var(--card);border-radius:14px;margin-bottom:10px;padding:4px 16px}summary{padding:10px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between}
+summary::-webkit-details-marker{display:none}.cnt{color:var(--mu);font-weight:400;font-size:14px}
+.it{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid color-mix(in srgb,var(--mu) 25%,transparent);cursor:pointer}
+.box{flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--mu);margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+.it.on .box{background:var(--ok);border-color:var(--ok)}.it.on span{color:var(--mu);text-decoration:line-through}
+#send{position:fixed;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom));width:auto;margin:0;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+#msg{font-size:13px;color:var(--mu);text-align:center;margin-top:6px}
+</style>
+</head>
+<body>
+<!--
+  A DA's "Today" card (Telegram Mini App), SAMPLE v2. This file is PUBLIC (GitHub Pages) and holds code only.
+  Data in: everything personal rides in the link after "#" (d = base64url raw-deflate JSON), which browsers never send to the server.
+  Data out: Telegram.WebApp.sendData (≤4096 bytes; works only when opened from a reply-keyboard button) → the DA poller →
+  da-answer.py `deck` (k:"today") → logged locally + a short receipt in chat.
+  State: today's ticks in localStorage; the move rotation (where he stopped) in Telegram CloudStorage when available, else localStorage.
+-->
+<header><h1 id="ttl">Today</h1><span class="tag" id="lbl">SAMPLE v2</span></header>
+<div class="tabs" id="tabs"></div>
+<main id="main"></main>
+<button class="btn" id="send">Send</button>
+<div id="msg"></div>
+<script>
+const tg=(window.Telegram&&Telegram.WebApp)||null,inTg=!!(tg&&tg.platform&&tg.platform!=="unknown");
+if(tg){try{tg.ready();tg.expand();}catch(e){}}
+const $=id=>document.getElementById(id),el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.textContent=h;return e;};
+function hashParam(n){const h=(location.hash||"").replace(/^#/,"");for(const p of h.split(/[&?]/)){const i=p.indexOf("=");if(i>0&&p.slice(0,i)===n)return p.slice(i+1);}return null;}
+function b64u(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+async function decode(d){if(typeof DecompressionStream==="undefined")throw new Error("this Telegram version can't open it. Update Telegram.");
+  return JSON.parse(await new Response(new Blob([b64u(d)]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text());}
+function demo(){return{v:2,title:"Today",label:"DEMO",gap:5,moves:[{id:"a",n:"March in place",t:20,how:"Easy march, arms swinging."},
+  {id:"b",n:"Arm circles",t:20,how:"Small circles, then big."},{id:"c",n:"Calf raises",t:20,sides:true,how:"One leg at a time. Switch at the beep."}],
+  mvmr:{n:"Morning",items:["Drink water","Open the blinds","Body movement"],auto:2},
+  habits:[{id:"pm",n:"Evening",when:"9 pm",from:18,items:["Tidy desk","Lights low"]}],pickle:[{id:"w",n:"Demo warm-up",items:["Walk 2 min","Arm circles"]}]};}
+const now=new Date(),pad=n=>String(n).padStart(2,"0"),DAY=now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()),HR=now.getHours();
+let C,KEY,S,R,M;
+// S = today's ticks (localStorage, resets daily). R = rotation across days {next, cyc:[ids done this cycle], sets}.
+function load(){try{S=JSON.parse(localStorage.getItem(KEY))||null;}catch(e){S=null;}if(!S||S.d!==DAY)S={d:DAY,w:{},h:{},p:{},mv:{},mood:null,full:0};}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+const RKEY=()=>"rot_"+(C.to||"x");
+function cs(){return inTg&&tg.CloudStorage&&tg.isVersionAtLeast&&tg.isVersionAtLeast("6.9")?tg.CloudStorage:null;}
+function loadR(){return new Promise(res=>{let loc=null;try{loc=JSON.parse(localStorage.getItem(RKEY()));}catch(e){}
+  const c=cs();if(!c)return res(loc);try{c.getItem(RKEY(),(err,v)=>{let r=null;try{r=v?JSON.parse(v):null;}catch(e){}res(r||loc);});}catch(e){res(loc);}
+  setTimeout(()=>res(loc),1500);});}
+function saveR(){const v=JSON.stringify(R);try{localStorage.setItem(RKEY(),v);}catch(e){}const c=cs();if(c)try{c.setItem(RKEY(),v);}catch(e){}}
+function haptic(k){try{tg&&tg.HapticFeedback&&tg.HapticFeedback.impactOccurred(k||"light");}catch(e){}}
+let AC=null;function beep(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();
+  o.frequency.value=f||880;o.connect(g);g.connect(AC.destination);g.gain.setValueAtTime(.25,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+(ms||250)/1000);
+  o.start();o.stop(AC.currentTime+(ms||250)/1000);}catch(e){}}
+const mmss=s=>Math.floor(s/60)+":"+pad(s%60);
+let tab,phase="ready",left=0,tick=null,cur=0;
+function tabs(){const b=$("tabs");b.innerHTML="";for(const[k,n]of[["morning","Morning"],["habits","Habits"],["pickle","Pickleball"]]){
+  const x=el("button",k===tab?"on":"",n);x.onclick=()=>{if(phase!=="ready"&&phase!=="full")stop();tab=k;render();};b.appendChild(x);}}
+function dots(c){const d=el("div","dots");M.forEach((m,i)=>d.appendChild(el("div","dot"+(R.cyc.includes(m.id)?" on":"")+(phase!=="ready"&&i===cur?" cur":""))));c.appendChild(d);}
+function doneToday(){return M.filter(m=>S.mv[m.id]).length;}
+function run(){clearInterval(tick);tick=setInterval(()=>{left--;
+  const m=M[cur];if(phase==="go"&&m.sides&&left===Math.floor(m.t/2)){beep(660,180);haptic("medium");}
+  if(left<=0){clearInterval(tick);if(phase==="go")finishMove();else{phase="go";left=M[cur].t;beep(880,200);run();}}render();},1000);}
+function start(){beep(1,1);cur=R.next%M.length;phase="go";left=M[cur].t;beep(880,200);haptic();run();render();}
+function finishMove(){const m=M[cur];S.mv[m.id]=1;if(!R.cyc.includes(m.id))R.cyc.push(m.id);R.next=(cur+1)%M.length;
+  if(C.mvmr&&C.mvmr.auto!=null){S.h.mvmr=S.h.mvmr||{};S.h.mvmr[C.mvmr.auto]=1;}
+  if(R.cyc.length>=M.length){R.cyc=[];R.sets=(R.sets||0)+1;S.full=1;save();saveR();phase="full";beep(988,350);setTimeout(()=>beep(1319,500),300);
+    try{tg&&tg.HapticFeedback&&tg.HapticFeedback.notificationOccurred("success");}catch(e){}return;}
+  save();saveR();beep(523,300);haptic("heavy");cur=R.next;phase="gap";left=C.gap||8;run();}
+function stop(){clearInterval(tick);phase="ready";render();}
+function skip(){clearInterval(tick);R.next=(cur+1)%M.length;saveR();cur=R.next;phase="go";left=M[cur].t;beep(880,200);run();render();}
+function morning(m){
+  const f=el("div","card");f.appendChild(el("div","","How do you feel?"));const r=el("div","mood");
+  for(let i=1;i<=5;i++){const b=el("button",S.mood===i?"on":"",String(i));b.onclick=()=>{S.mood=S.mood===i?null:i;save();haptic();render();};r.appendChild(b);}
+  f.appendChild(r);m.appendChild(f);
+  const c=el("div","card");
+  if(phase==="full"){c.className="card party";c.appendChild(el("div","em","🎉"));c.appendChild(el("div","big","Great job! You did all "+M.length+"."));
+    c.appendChild(el("div","mu","Full set done"+(R.sets>1?" · "+R.sets+" full sets so far":"")+". The next one starts fresh."));
+    const b=el("button","btn alt","Done");b.onclick=()=>{phase="ready";render();};c.appendChild(b);m.appendChild(c);}
+  else if(phase==="ready"){const n=R.next%M.length,x=M[n],dt=doneToday();
+    c.appendChild(el("div","mu",dt?dt+" done today · next up":"Next up"));c.appendChild(el("div","big",x.n));dots(c);
+    c.appendChild(el("div","mu","Exercise "+(n+1)+" of "+M.length+". It keeps going on its own; stop any time."));
+    const b=el("button","btn","▶ Start");b.onclick=start;c.appendChild(b);m.appendChild(c);}
+  else{const x=M[cur];
+    c.appendChild(el("div","mu",phase==="gap"?"Next up":"Exercise "+(cur+1)+" of "+M.length));c.appendChild(el("div","big",x.n));dots(c);
+    c.appendChild(el("div","timer",mmss(Math.max(left,0))));
+    c.appendChild(el("div","side",phase==="gap"?"Get ready":x.sides?(left>Math.floor(x.t/2)?"First side":"Other side"):""));
+    c.appendChild(el("div","how",x.how));
+    const r2=el("div","row2"),st=el("button","btn alt","■ Stop"),sk=el("button","btn alt","Skip ›");st.onclick=stop;sk.onclick=skip;
+    r2.appendChild(st);r2.appendChild(sk);c.appendChild(r2);m.appendChild(c);}
+  if(C.mvmr){S.h.mvmr=S.h.mvmr||{};list(m,C.mvmr.items,S.h.mvmr,C.mvmr.n,null,phase==="ready");}}
+function list(m,items,st,title,sub,open){const d=el("details");if(open)d.open=true;const s=el("summary");s.appendChild(el("span","",title));
+  const cnt=el("span","cnt");s.appendChild(cnt);d.appendChild(s);if(sub)d.appendChild(el("div","mu",sub));
+  const upd=()=>{cnt.textContent=items.filter((_,i)=>st[i]).length+"/"+items.length;};
+  items.forEach((n,i)=>{const r=el("div","it"+(st[i]?" on":""));r.appendChild(el("div","box",st[i]?"✓":""));r.appendChild(el("span","",n));
+    r.onclick=()=>{if(st[i])delete st[i];else st[i]=1;r.classList.toggle("on");r.firstChild.textContent=st[i]?"✓":"";upd();save();haptic();};d.appendChild(r);});
+  upd();m.appendChild(d);}
+function habits(m){let cur=null;for(const h of C.habits)if(HR>=(h.from||0))cur=h.id;
+  for(const h of C.habits){S.h[h.id]=S.h[h.id]||{};list(m,h.items,S.h[h.id],h.n,h.when,h.id===cur);}}
+function pickle(m){(C.pickle||[]).forEach((p,i)=>{S.p[p.id]=S.p[p.id]||{};list(m,p.items,S.p[p.id],p.n,null,i===0);});}
+function render(){tabs();const m=$("main");m.innerHTML="";({morning,habits,pickle})[tab](m);}
+function envelope(full){const sec=[],cut=s=>full?String(s).slice(0,48):"",add=(n,items,st)=>{const dn=items.filter((_,i)=>st&&st[i]);sec.push({n:n,done:dn.map(cut).filter(Boolean),k:dn.length,of:items.length});};
+  const mv=M.filter(x=>S.mv[x.id]);sec.push({n:"Morning moves",done:mv.map(x=>cut(x.n)).filter(Boolean),k:mv.length,of:M.length});
+  if(C.mvmr)add("Morning routine",C.mvmr.items,S.h.mvmr);for(const h of C.habits)add(h.n,h.items,S.h[h.id]);for(const p of(C.pickle||[]))add(p.n,p.items,S.p[p.id]);
+  return JSON.stringify({v:1,k:"today",s:C.ver||"",a:[],d:DAY,at:pad(new Date().getHours())+":"+pad(new Date().getMinutes()),
+    en:S.mood?S.mood+"/5":null,full:!!S.full,next:R.next,sec:sec});}
+function send(){if(phase==="go"||phase==="gap")stop();let s=envelope(true);if(new Blob([s]).size>4000)s=envelope(false);
+  if(inTg&&typeof tg.sendData==="function"&&!(tg.initDataUnsafe&&tg.initDataUnsafe.query_id)){try{tg.sendData(s);return;}catch(e){$("msg").textContent="Couldn't send: "+e.message;return;}}
+  $("msg").textContent="Preview only: open this from the ☀️ Today button in the chat to send.";console.log(s);}
+(async()=>{const d=hashParam("d");try{C=d?await decode(d):demo();}catch(e){$("main").textContent="Couldn't open the card: "+e.message;return;}
+  M=C.moves;KEY="today2:"+(C.to||"x");load();R=(await loadR())||{next:0,cyc:[],sets:0};R.cyc=(R.cyc||[]).filter(id=>M.some(m=>m.id===id));
+  $("ttl").textContent=C.title||"Today";$("lbl").textContent=C.label||"";$("send").textContent="Send to "+(C.toName||"coach");
+  $("send").onclick=send;tab=(HR>=4&&HR<13)?"morning":"habits";render();})();
+</script>
+<!-- sticky-title v7 -->
+<style id="st-style">
+  html { scroll-padding-top: 3.5rem; }
+  #st-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 2147483000;
+    padding: .55rem max(1rem, env(safe-area-inset-left)); box-sizing: border-box;
+    font: 600 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: #fff; color: #111; border-bottom: 1px solid rgba(127,127,127,.25);
+    box-shadow: 0 1px 6px rgba(0,0,0,.08); cursor: pointer; display: none; }
+  #st-bar.st-on { display: block; }
+  @media (prefers-color-scheme: dark) { #st-bar { background: #1c1c1e; color: #eee; } }
+  @media print { #st-bar { display: none; } }
+</style>
+<div id="st-bar" role="presentation" title="Back to top"></div>
+<script id="st-script">
+(function () {
+  var bar = document.getElementById("st-bar");
+  if (!bar) return;
+  var target = document.querySelector("h1") || document.querySelector("header") || document.querySelector("h2");
+  var text = (target && target.textContent.trim()) || document.title || "";
+  text = text.replace(/\s+/g, " ");
+  if (!text) { bar.remove(); return; }
+  bar.textContent = text;
+  // Match the page's own colors (pages set their own light/dark palettes).
+  function paint() {
+    var bg = "", el = document.body;
+    while (el && !bg) {
+      var c = getComputedStyle(el).backgroundColor;
+      if (c && c !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(c)) bg = c;
+      el = el === document.body ? document.documentElement : null;
+    }
+    if (bg) { bar.style.background = bg; bar.style.color = getComputedStyle(document.body).color; }
+  }
+  paint();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", paint);
+  }
+  bar.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: "smooth" }); });
+  // Shown whenever the page's own title is off-screen (scrolled past, or
+  // below the fold under a contents list) so a title is always visible.
+  function offscreen() {
+    if (!target) return window.scrollY > 40;
+    var r = target.getBoundingClientRect();
+    return r.top < 0 || r.bottom > window.innerHeight;  // not fully on screen
+  }
+  // Title starts below the fold → reserve the bar's height so it never covers
+  // the first lines of the page.
+  if (target && offscreen() && window.scrollY < 8) {
+    bar.classList.add("st-on");
+    document.body.style.paddingTop = (parseFloat(getComputedStyle(document.body).paddingTop) || 0) + bar.offsetHeight + "px";
+  }
+  // The page's own things pinned at the top (sticky headers, tab rows, table
+  // header cells): if one already shows the title, stay hidden; otherwise push
+  // it below this bar so nothing is covered. Shallow scan + table headers only;
+  // sticky elements with top:auto (left-pinned columns) are left alone.
+  var cands = Array.prototype.filter.call(
+    document.querySelectorAll("body>*,body>*>*,body>*>*>*,body>*>*>*>*,thead,thead>tr,th"),
+    function (e) {
+      if (e === bar) return false;
+      var cs = getComputedStyle(e);
+      return cs.position === "fixed" || (cs.position === "sticky" && cs.top !== "auto");
+    });
+  var words = text.toLowerCase().match(/[a-z0-9]{4,}/g) || [];
+  var shifted = [];
+  function carriesTitle(e) {
+    if (target && e.contains(target)) return true;
+    if (!words.length) return false;
+    var t = e.textContent.toLowerCase(), n = 0;
+    words.forEach(function (w) { if (t.indexOf(w) >= 0) n++; });
+    return n / words.length >= 0.6;
+  }
+  function pinnedTop() {
+    var bh = bar.offsetHeight || 0;
+    return cands.filter(function (e) {
+      var r = e.getBoundingClientRect(), lim = shifted.indexOf(e) >= 0 ? bh + 1 : 1;
+      return r.height > 0 && r.height < window.innerHeight * 0.5 && r.top <= lim && r.bottom > 0;
+    });
+  }
+  function update() {
+    var on = offscreen(), pins = cands.length ? pinnedTop() : [];
+    if (on && pins.some(carriesTitle)) on = false;
+    bar.classList.toggle("st-on", on);
+    if (on) {
+      var bh = bar.offsetHeight;
+      pins.forEach(function (e) {
+        if (shifted.indexOf(e) < 0) { e.setAttribute("data-st-top", e.style.top); e.style.top = bh + "px"; shifted.push(e); }
+      });
+    } else if (shifted.length) {
+      shifted.forEach(function (e) { e.style.top = e.getAttribute("data-st-top") || ""; e.removeAttribute("data-st-top"); });
+      shifted = [];
+    }
+  }
+  window.addEventListener("scroll", update, { passive: true });
+  window.addEventListener("resize", update);
+  update();
+})();
+</script>
+<!-- /sticky-title -->
+</body>
+</html>
