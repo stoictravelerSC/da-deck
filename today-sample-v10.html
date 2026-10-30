@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SAMPLE v10 · Today</title>
+<script src="telegram-web-app.js"></script>
+<style>
+:root{--bg:var(--tg-theme-bg-color,#fff);--tx:var(--tg-theme-text-color,#16181d);--mu:var(--tg-theme-hint-color,#7a7f8a);
+--ac:var(--tg-theme-button-color,#2f7de1);--act:var(--tg-theme-button-text-color,#fff);--card:var(--tg-theme-secondary-bg-color,#f2f3f6);--ok:#2e9e5b;--x:#c98a1b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:var(--tg-theme-bg-color,#17191d);--tx:var(--tg-theme-text-color,#eceef2);
+--mu:var(--tg-theme-hint-color,#8b919c);--card:var(--tg-theme-secondary-bg-color,#22252b)}}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:12px 16px 96px;-webkit-tap-highlight-color:transparent;max-width:640px;margin:0 auto}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+h1{font-size:22px;margin:0}.tag{font-size:11px;color:var(--mu);border:1px solid var(--mu);border-radius:6px;padding:1px 6px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tabs button{flex:1;padding:9px 2px;border:0;border-radius:10px;background:var(--card);color:var(--tx);font-size:15px}
+.tabs button.on{background:var(--ac);color:var(--act);font-weight:600}
+.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px}
+.mu{color:var(--mu);font-size:14px}.big{font-size:24px;font-weight:700;margin:2px 0 6px}
+.btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--ac);color:var(--act);font-size:17px;font-weight:600;margin-top:10px;cursor:pointer}
+.btn.alt{background:var(--bg);color:var(--tx);font-weight:500}.row2{display:flex;gap:8px}.row2 .btn{flex:1}
+.mood{display:flex;gap:6px;margin-top:8px}.mood button{flex:1;padding:11px 0;border:0;border-radius:10px;background:var(--bg);color:var(--tx);font-size:17px;cursor:pointer}
+.mood button.on{background:var(--ac);color:var(--act);font-weight:700}
+.dots{display:flex;gap:5px;margin:8px 0 2px}.dot{flex:1;height:6px;border-radius:3px;background:color-mix(in srgb,var(--mu) 30%,transparent)}
+.dot.x{flex:.8;opacity:.75}.dot.on{background:var(--ok)}.dot.x.on{background:var(--x)}.dot.cur{background:var(--ac)}
+.timer{font-size:56px;font-weight:700;text-align:center;margin:8px 0 0;font-variant-numeric:tabular-nums}
+.side{text-align:center;font-weight:600;color:var(--ac);min-height:22px}.how{font-size:16px;margin-top:4px}
+.lv{display:flex;gap:6px;margin-top:8px;font-size:13px}.lv span{flex:1;text-align:center;padding:5px 0;border-radius:8px;background:var(--bg);color:var(--mu)}
+.lv span.on{background:color-mix(in srgb,var(--ok) 18%,var(--bg));color:var(--ok);font-weight:600}
+.party{text-align:center;padding:26px 16px}.party .em{font-size:64px;line-height:1}
+details{background:var(--card);border-radius:14px;margin-bottom:10px;padding:4px 16px}summary{padding:10px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between;cursor:pointer}
+summary::-webkit-details-marker{display:none}.cnt{color:var(--mu);font-weight:400;font-size:14px}
+.gh{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mu);padding:12px 0 2px}
+.it{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid color-mix(in srgb,var(--mu) 25%,transparent);cursor:pointer}
+.it .opt{color:var(--mu);font-size:13px}
+.box{flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--mu);margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+.it.on .box{background:var(--ok);border-color:var(--ok)}.it.on span{color:var(--mu);text-decoration:line-through}
+a.lnk{color:var(--ac)}
+#send{position:fixed;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom));width:auto;max-width:608px;margin:0 auto;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.pthead{display:flex;justify-content:space-between;align-items:baseline}.ptc{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}.ptr{display:flex;gap:8px;align-items:center}
+.qk{border:0;border-radius:9px;padding:6px 10px;background:var(--bg);color:var(--ac);font-size:14px;font-weight:600;cursor:pointer}.row2.ic .btn{font-size:24px;padding:10px}
+#msg{font-size:13px;color:var(--mu);text-align:center;margin-top:6px}
+.flip{position:relative;aspect-ratio:16/9;margin:10px 0 2px;border-radius:10px;overflow:hidden;background:#fff}.flip img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transition:opacity .25s}.flip img.b,.flip.on img.a{opacity:0}.flip.on img.b{opacity:1}
+.seq{margin:8px 0 0;padding-left:22px;font-size:15px}.seq li{padding:2px 0}.side.wait{color:var(--x)}
+.bar{height:6px;border-radius:3px;background:color-mix(in srgb,var(--mu) 30%,transparent);overflow:hidden;margin-top:12px}.bar>div{height:100%;background:var(--ok)}
+</style>
+</head>
+<body>
+<!--
+  A DA's "Today" card (Telegram Mini App), SAMPLE v10. This file is PUBLIC (GitHub Pages) and holds code only.
+  Data in: everything personal rides in the link after "#" (d = base64url raw-deflate JSON), which browsers never send to the server.
+  Data out: Telegram.WebApp.sendData (≤4096 bytes; works only when opened from a reply-keyboard button) → the DA poller →
+  da-answer.py `deck` (k:"today") → logged locally + a short receipt in chat. Each Send carries the whole day so far.
+  Tabs follow the time of day; PT modules (C.pts: exercises "ex", stretches "st"; each one tap = a timed auto-run of the whole sequence, a finished run = 1 set/round, counted across tabs) sit where a tab's {type:"pt",m} block puts them. Item photos (img:[start,end]) flip every 1.2 s. State: the day (4 am to 4 am) and the move rotation live in Telegram CloudStorage (shared by phone + Mac) with a localStorage copy.
+-->
+<header><h1 id="ttl">Today</h1><span class="tag" id="lbl">SAMPLE v10</span></header>
+<div class="tabs" id="tabs"></div>
+<main id="main"></main>
+<button class="btn" id="send">Send</button>
+<div id="msg"></div>
+<script>
+const tg=(window.Telegram&&Telegram.WebApp)||null,inTg=!!(tg&&tg.platform&&tg.platform!=="unknown");
+if(tg){try{tg.ready();tg.expand();}catch(e){}}
+const $=id=>document.getElementById(id),el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.textContent=h;return e;};
+function hashParam(n){const h=(location.hash||"").replace(/^#/,"");for(const p of h.split(/[&?]/)){const i=p.indexOf("=");if(i>0&&p.slice(0,i)===n)return p.slice(i+1);}return null;}
+function b64u(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+async function decode(d){if(typeof DecompressionStream==="undefined")throw new Error("this Telegram version can't open it. Update Telegram.");
+  return JSON.parse(await new Response(new Blob([b64u(d)]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text());}
+function demo(){return{v:3,title:"Today",label:"DEMO",gap:5,moves:[{id:"a",tier:1,n:"March in place",t:20,how:"Easy march, arms swinging."},
+  {id:"b",tier:1,n:"Arm circles",t:20,how:"Small circles, then big."},{id:"c",tier:2,n:"Calf raises",t:20,sides:true,how:"One leg at a time. Switch at the beep."}],
+  pts:[{id:"ex",n:"PT exercises",unit:"set",goal:[["1 set · min",1],["2 · goal",2]],items:[{n:"Shoulder rolls",pre:5,t:15,how:"10 slow rolls."},{n:"Neck stretch",pre:5,t:10,reps:2,sides:true,how:"Ear to shoulder."}]}],
+  tabs:[{id:"am",n:"Morning",from:4,blocks:[{type:"mood"},{type:"moves"},{type:"pt",m:"ex"},{type:"list",key:"am",n:"Morning",groups:[{g:"Start",items:["Drink water",{n:"Stretch",opt:true}]},{g:"Body",items:[{n:"Warm-up",id:"warmup"}]}]}]},
+    {id:"pm",n:"Evening",from:18,blocks:[{type:"pt",m:"ex"},{type:"list",key:"pm",n:"Evening",items:["Tidy desk","Lights low"]}]}]};}
+const pad=n=>String(n).padStart(2,"0"),mmss=s=>Math.floor(s/60)+":"+pad(s%60);
+const dayOf=t=>{const d=new Date(t.getTime()-4*3600e3);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());};   // the day runs 4 am → 4 am
+const DAY=dayOf(new Date()),HR=new Date().getHours();
+const nm=x=>typeof x==="string"?x:x.n,isOpt=x=>typeof x==="object"&&!!x.opt;
+let C,S,R,M,CORE,tab,phase="ready",left=0,tick=null,cur=null,party=0,FL=false;const OPEN={},PP={};
+// S = the day {d, mv:{id:1}, t:{listkey:{itemkey:1}}, mood, order:[ids]}; R = rotation across days {next (index into the daily set), sets}.
+const K=()=>(C.to||"x"),cs=()=>inTg&&tg.CloudStorage&&tg.isVersionAtLeast&&tg.isVersionAtLeast("6.9")?tg.CloudStorage:null;
+function cget(k){return new Promise(res=>{let loc=null;try{loc=JSON.parse(localStorage.getItem(k));}catch(e){}const c=cs();if(!c)return res([loc,null]);
+  let done=false;try{c.getItem(k,(err,v)=>{if(done)return;done=true;let r=null;try{r=v?JSON.parse(v):null;}catch(e){}res([loc,r]);});}catch(e){done=true;res([loc,null]);}
+  setTimeout(()=>{if(!done){done=true;res([loc,null]);}},1500);});}
+function cput(k,o){const v=JSON.stringify(o);try{localStorage.setItem(k,v);}catch(e){}const c=cs();if(c)try{c.setItem(k,v);}catch(e){}}
+function merge(a,b){if(!a)return b;if(!b)return a;const o=Object.assign({},a,b);for(const k of Object.keys(o))if(a[k]&&b[k]&&typeof a[k]==="object"&&!Array.isArray(a[k]))o[k]=merge(a[k],b[k]);return o;}
+const save=()=>cput("day_"+K(),S),saveR=()=>cput("rot_"+K(),R);
+function haptic(k){try{tg&&tg.HapticFeedback&&tg.HapticFeedback.impactOccurred(k||"light");}catch(e){}}
+let AC=null;   // iOS: "playback" lets beeps sound with the ringer switch on silent; a suspended/interrupted context is resumed on every beep and tap
+try{if(navigator.audioSession)navigator.audioSession.type="playback";}catch(e){}
+document.addEventListener("pointerdown",()=>{try{if(AC&&AC.state!=="running")AC.resume();}catch(e){}},true);
+function beep(f,ms){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state!=="running")AC.resume();const o=AC.createOscillator(),g=AC.createGain();
+  o.frequency.value=f||880;o.connect(g);g.connect(AC.destination);g.gain.setValueAtTime(.5,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+(ms||250)/1000);
+  o.start();o.stop(AC.currentTime+(ms||250)/1000);}catch(e){}}
+const byId=id=>M.find(m=>m.id===id),done=()=>M.filter(m=>S.mv[m.id]).length;
+function level(){const d=done();return d===0?0:CORE.every(m=>S.mv[m.id])?(M.every(m=>S.mv[m.id])?3:2):1;}
+function nextId(){return(S.order||[]).find(id=>!S.mv[id]&&byId(id));}
+const T=()=>C.tabs.find(t=>t.id===tab);
+function tabs(){const b=$("tabs");b.innerHTML="";for(const t of C.tabs){const x=el("button",t.id===tab?"on":"",t.n);
+  x.onclick=()=>{if(phase==="go"||phase==="gap")stop();tab=t.id;render();};b.appendChild(x);}}
+function dots(c){const d=el("div","dots");for(const id of S.order){const m=byId(id);if(!m)continue;
+  d.appendChild(el("div","dot"+(m.tier===2?" x":"")+(S.mv[id]?" on":"")+((phase==="go"||phase==="gap")&&id===cur?" cur":"")));}c.appendChild(d);}
+function run(){clearInterval(tick);tick=setInterval(()=>{left--;const m=byId(cur);
+  if(phase==="go"&&m.sides&&left===Math.floor(m.t/2)){beep(660,180);haptic("medium");}
+  if(left<=0){clearInterval(tick);if(phase==="go")finishMove();else{phase="go";left=byId(cur).t;beep(880,200);run();}}render();},1000);}
+function go(id){cur=id;phase="go";left=byId(id).t;beep(880,200);haptic();run();render();}
+function start(){beep(1,1);const id=nextId();if(id)go(id);}
+function finishMove(){const m=byId(cur),before=level();S.mv[m.id]=1;
+  const ci=CORE.indexOf(m);if(ci>=0)R.next=(ci+1)%CORE.length;
+  const now=level();if(now===3&&before<3)R.sets=(R.sets||0)+1;save();saveR();
+  if(now>before&&now>=2){phase="party";party=now;beep(988,350);setTimeout(()=>beep(1319,500),300);
+    try{tg&&tg.HapticFeedback&&tg.HapticFeedback.notificationOccurred("success");}catch(e){}render();return;}
+  const id=nextId();if(!id){phase="ready";render();return;}
+  beep(523,300);haptic("heavy");cur=id;phase="gap";left=C.gap||8;run();}
+function stop(){clearInterval(tick);phase="ready";render();}
+function skip(){clearInterval(tick);const i=S.order.indexOf(cur);const rest=S.order.slice(i+1).concat(S.order.slice(0,i)).find(id=>!S.mv[id]);if(rest)go(rest);else stop();}
+function moodB(m){const f=el("div","card");f.appendChild(el("div","","How do you feel?"));const r=el("div","mood");
+  for(let i=1;i<=5;i++){const b=el("button",S.mood===i?"on":"",String(i));b.onclick=()=>{S.mood=S.mood===i?null:i;save();haptic();render();};r.appendChild(b);}
+  f.appendChild(r);m.appendChild(f);}
+function movesB(m){const c=el("div","card"),lv=level(),nc=CORE.filter(x=>S.mv[x.id]).length,nx=M.length-CORE.length;
+  if(phase==="party"){c.className="card party";
+    if(party===3){c.appendChild(el("div","em","🏆"));c.appendChild(el("div","big","All "+M.length+"! Amazing."));c.appendChild(el("div","mu","Daily set plus every extra. That's the whole thing."));}
+    else{c.appendChild(el("div","em","🎉"));c.appendChild(el("div","big","Great job! Daily set done."));c.appendChild(el("div","mu","All "+CORE.length+" done. Feeling good? "+nx+" extras are next."));
+      const k=el("button","btn","▶ Keep going: "+nx+" extras");k.onclick=()=>{const id=nextId();if(id)go(id);};c.appendChild(k);}
+    const b=el("button","btn alt","Done for now");b.onclick=()=>{phase="ready";render();};c.appendChild(b);}
+  else if(phase==="ready"){const id=nextId(),x=id&&byId(id);c.appendChild(el("div","gh","Warm-up"));
+    if(!x){c.appendChild(el("div","big","All "+M.length+" done today 🏆"));dots(c);}
+    else{c.appendChild(el("div","mu",x.tier===2?"Extra · next up":"Next up"));c.appendChild(el("div","big",x.n));dots(c);
+      c.appendChild(el("div","mu",lv>=2?"Daily set done. Extras are a bonus; stop any time.":"Runs on its own; stop any time. Daily set: "+nc+" of "+CORE.length+"."));
+      const b=el("button","btn","▶ Start");b.onclick=start;c.appendChild(b);}
+    const L=el("div","lv");[["1+ move",1],["Daily set",2],["All "+M.length,3]].forEach(([t,v])=>L.appendChild(el("span",lv>=v?"on":"",(lv>=v?"✓ ":"")+t)));c.appendChild(L);}
+  else{const x=byId(cur);
+    c.appendChild(el("div","mu",phase==="gap"?"Next up":(x.tier===2?"Extra":"Daily set")+" · "+(S.order.indexOf(cur)+1)+" of "+S.order.length));c.appendChild(el("div","big",x.n));dots(c);
+    c.appendChild(el("div","timer",mmss(Math.max(left,0))));
+    c.appendChild(el("div","side",phase==="gap"?"Get ready":x.sides?(left>Math.floor(x.t/2)?"First side":"Other side"):""));
+    c.appendChild(el("div","how",x.how));
+    const r2=el("div","row2"),st=el("button","btn alt","■ Stop"),sk=el("button","btn alt","Skip ›");st.onclick=stop;sk.onclick=skip;
+    r2.appendChild(st);r2.appendChild(sk);c.appendChild(r2);}
+  m.appendChild(c);}
+function row(parent,x,st,key,upd){const r=el("div","it"+(st[key]?" on":""));r.appendChild(el("div","box",st[key]?"✓":""));
+  const s=el("span","",nm(x));if(isOpt(x))s.appendChild(el("span","opt"," · optional"));r.appendChild(s);
+  r.onclick=()=>{if(st[key])delete st[key];else st[key]=1;r.classList.toggle("on");r.firstChild.textContent=st[key]?"✓":"";upd();save();haptic();render();};parent.appendChild(r);}
+const pairs=L=>L.groups?L.groups.flatMap((g,gi)=>g.items.map((x,i)=>[x,gi+"."+i])):L.items.map((x,i)=>[x,String(i)]);
+function count(L,st){const req=pairs(L).filter(([x])=>!isOpt(x));return[req.filter(([,k])=>st[k]).length,req.length];}
+// PT modules: state per module p in S[k+"n"] (items done today), S[k+"k"] (item count it was counted against), R[k+"pos"] (next item); k = "pt" for exercises (v4 keys), else p.id.
+const PM=id=>(C.pts||[]).find(p=>p.id===id),PK=p=>p.id==="ex"?"pt":p.id,pN=p=>p.items.length,pst=p=>PP[p.id]=PP[p.id]||{ph:"ready",left:0,tick:null};
+const pDone=p=>Math.floor((S[PK(p)+"n"]||0)/pN(p)),pIn=p=>(S[PK(p)+"n"]||0)%pN(p);
+function pFix(p){const k=PK(p);if(S[k+"k"]!==pN(p)){S[k+"n"]=0;S[k+"k"]=pN(p);}}   // the item list changed: today's count restarts
+function listB(m,L,key,open,extra){const d=el("details");d.open=key in OPEN?OPEN[key]:!!open;d.addEventListener("toggle",()=>{OPEN[key]=d.open;});const s=el("summary");s.appendChild(el("span","",L.n+(L.opt?" · optional":"")));
+  const cnt=el("span","cnt");s.appendChild(cnt);d.appendChild(s);if(L.sub)d.appendChild(el("div","mu",L.sub));if(extra)extra(d);
+  const st=S.t[key]=S.t[key]||{};
+  if(L.groups&&level()>=1)pairs(L).forEach(([x,k])=>{if(x.id==="warmup")st[k]=1;});
+  const upd=()=>{const[a,b]=count(L,st);cnt.textContent=a+"/"+b;};
+  if(L.groups)L.groups.forEach((g,gi)=>{d.appendChild(el("div","gh",g.g));g.items.forEach((x,i)=>row(d,x,st,gi+"."+i,upd));});
+  else L.items.forEach((x,i)=>row(d,x,st,String(i),upd));
+  upd();m.appendChild(d);}
+function flip(c,x){if(!x.img||x.img.length<2)return;const f=el("div","flip"+(FL?" on":""));
+  x.img.forEach((u,i)=>{const im=el("img",i?"b":"a");im.alt="";im.src=u;im.onerror=()=>f.remove();f.appendChild(im);});c.appendChild(f);}
+setInterval(()=>{FL=!FL;document.querySelectorAll(".flip").forEach(f=>f.classList.toggle("on",FL));},1200);
+function tickList(id){for(const t of C.tabs)for(const b of t.blocks)if(b.type==="list"){const st=S.t[b.key]=S.t[b.key]||{};for(const[x,k]of pairs(b))if(x.id===id)st[k]=1;}}
+// A PT run = the whole module as one timed sequence of steps {i: item index, k: "pre" | "go" | "gap", d: seconds, lab}; timed off the wall clock so a locked phone catches up. Run buttons: ⏸/▶ pause-resume, ■ stop (counts nothing), ✓ done with this item (jump to the next); "＋ Log" at the top counts a full set done without the card.
+function pSteps(p){const out=[];p.items.forEach((x,i)=>{const sides=x.sides?["Left side","Right side"]:[""],reps=x.reps||1,sets=x.sets||1;
+  if(x.pre)out.push({i,k:"pre",d:x.pre,lab:"Get ready"});
+  for(let q=1;q<=sets;q++)for(let r=1;r<=reps;r++)sides.forEach((sd,j)=>{
+    if(out.length&&out[out.length-1].i===i&&out[out.length-1].k==="go")out.push(r===1&&j===0&&q>1?{i,k:"gap",d:(x.gap||5)+5,lab:"Round "+q+": start low again"}:{i,k:"gap",d:x.gap||5,lab:x.sides?"Switch sides":x.rl?"Move up to the next spot":"Reset"});
+    const lab=[sd,reps>1?(x.rl?x.rl+" ":"")+r+" of "+reps:"",sets>1?"round "+q+" of "+sets:""].filter(Boolean).join(" · ");
+    out.push({i,k:"go",d:x.t||30,lab:x.sides?lab:reps>1?"Hold · "+lab:"Go"});});});return out;}
+const pTot=st=>st.reduce((a,x)=>a+x.d,0);
+let WL=null;async function wake(on){try{if(on&&navigator.wakeLock&&!WL)WL=await navigator.wakeLock.request("screen");else if(!on&&WL){WL.release();WL=null;}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Object.values(PP).some(s=>s.ph==="go")){WL=null;wake(1);}});
+function ptGo(p){const s=pst(p);clearInterval(s.tick);Object.assign(s,{ph:"go",steps:pSteps(p),t0:Date.now(),off:0,idx:-1,pz:0});beep(1,1);wake(1);s.tick=setInterval(()=>ptTick(p),250);ptTick(p);}
+function ptTick(p){const s=pst(p),e=(Date.now()-s.t0)/1000+s.off;let a=0,i=0;for(;i<s.steps.length;i++){if(e<a+s.steps[i].d)break;a+=s.steps[i].d;}
+  if(i>=s.steps.length){ptFinish(p);return;}
+  const tot=pTot(s.steps);s.rem=Math.ceil(a+s.steps[i].d-e);s.totRem=Math.ceil(tot-e);
+  if(i!==s.idx){s.idx=i;if(s.steps[i].k==="go"){beep(880,220);haptic("heavy");}else{beep(523,300);haptic("medium");}render();return;}
+  const t=$("ptT_"+p.id),r=$("ptR_"+p.id),b=$("ptB_"+p.id);if(t)t.textContent=mmss(s.rem);if(r)r.textContent=mmss(s.totRem)+" left";if(b)b.style.width=(100*e/tot)+"%";
+  if(s.steps[i].k!=="go"&&s.rem<=3&&s.last!==s.rem){s.last=s.rem;beep(660,90);}}
+function ptFinish(p){const s=pst(p),k=PK(p);clearInterval(s.tick);wake(0);pLog(p);
+  s.ph="party";beep(988,350);setTimeout(()=>beep(1319,500),300);try{tg&&tg.HapticFeedback&&tg.HapticFeedback.notificationOccurred("success");}catch(e){}render();}
+function pLog(p){S[PK(p)+"n"]=(pDone(p)+1)*pN(p);p.items.forEach(x=>{if(x.id)tickList(x.id);});save();}   // one full set/round, counted
+function ptQuick(p){pLog(p);haptic("medium");beep(988,200);render();}
+function ptStop(p){const s=pst(p);clearInterval(s.tick);wake(0);s.ph="ready";render();}   // a stopped run counts nothing
+function ptPause(p){const s=pst(p);if(s.pz){s.off-=(Date.now()-s.pz)/1000;s.pz=0;s.tick=setInterval(()=>ptTick(p),250);ptTick(p);}else{s.pz=Date.now();clearInterval(s.tick);}render();}
+function ptNext(p){const s=pst(p);if(s.pz){s.off-=(Date.now()-s.pz)/1000;s.pz=0;s.tick=setInterval(()=>ptTick(p),250);}const e=(Date.now()-s.t0)/1000+s.off,ci=s.steps[s.idx].i;let a=0;for(const x of s.steps){if(x.i>ci)break;a+=x.d;}s.off+=a-e;ptTick(p);}
+function ptB(m,p){const n=pN(p),sd=pDone(p),s=pst(p),u=p.unit||"set",U=u[0].toUpperCase()+u.slice(1),G=p.goal||[],top3=G.length?G[G.length-1][1]:1,c=el("div","card");
+  const top=el("div","pthead");top.appendChild(el("div","gh",p.n||"PT"));const tr=el("div","ptr");tr.appendChild(el("div","ptc",G.length>1?sd+" "+u+(sd===1?"":"s"):sd?"✓":""));
+  if(s.ph!=="go"){const q=el("button","qk","＋ Log "+u);q.title="Already did a full "+u+" without the card? Count it.";q.onclick=()=>ptQuick(p);tr.appendChild(q);}
+  top.appendChild(tr);c.appendChild(top);
+  if(G.length>1){const L=el("div","lv");G.forEach(([t,v])=>L.appendChild(el("span",sd>=v?"on":"",(sd>=v?"✓ ":"")+t)));c.appendChild(L);}
+  if(s.ph==="party"){c.classList.add("party");c.appendChild(el("div","em","🎉"));c.appendChild(el("div","big",(p.n||"PT")+": "+(G.length>1?u+" "+sd+" done!":"done!")));
+    const msg=G.length<2?"All "+n+" done for today. Nice work.":sd>=top3?"Top goal hit. Great work.":sd>=(G[1]||G[0])[1]?"Daily goal hit.":"Today's minimum is in. Send it so "+(C.toName||"your coach")+" knows.";
+    c.appendChild(el("div","mu",msg));
+    const s1=el("button","btn","Send to "+(C.toName||"coach"));s1.onclick=send;c.appendChild(s1);
+    if(G.length>1){const k=el("button","btn alt","▶ Start "+u+" "+(sd+1));k.onclick=()=>ptGo(p);c.appendChild(k);}
+    const b=el("button","btn alt","Done for now");b.onclick=()=>{s.ph="ready";render();};c.appendChild(b);}
+  else if(s.ph==="ready"){c.appendChild(el("div","mu","All "+n+" in a row, about "+(m=>Math.floor(m)+(m%1?"½":""))(Math.round(pTot(pSteps(p))/30)/2)+" min. Runs on its own."));
+    const ol=el("ol","seq");p.items.forEach(x=>ol.appendChild(el("li","",x.n)));c.appendChild(ol);
+    const b=el("button","btn",G.length>1&&sd?"▶ Start "+u+" "+(sd+1):G.length<2&&sd?"▶ Run again":"▶ Start");b.onclick=()=>ptGo(p);c.appendChild(b);
+    if(p.sub)c.appendChild(el("div","mu",p.sub));
+    if(p.link){const q=el("div","mu");const a=el("a","lnk","Exercise videos");a.href=p.link;a.target="_blank";
+      a.onclick=e=>{if(inTg&&tg.openLink){e.preventDefault();tg.openLink(p.link);}};q.appendChild(a);if(p.code)q.appendChild(document.createTextNode(" · code "+p.code));c.appendChild(q);}}
+  else{const st=s.steps[s.idx],x=p.items[st.i],nx=p.items[st.i+1];
+    c.appendChild(el("div","mu",(G.length>1?U+" "+(sd+1)+" · ":"")+(st.i+1)+" of "+n));c.appendChild(el("div","big",x.n));flip(c,x);
+    c.appendChild(el("div","side"+(st.k==="go"&&!s.pz?"":" wait"),s.pz?"Paused":st.lab));
+    const t=el("div","timer",mmss(s.rem));t.id="ptT_"+p.id;c.appendChild(t);
+    if(x.how)c.appendChild(el("div","how",x.how));
+    c.appendChild(el("div","mu",nx?"Next: "+nx.n:"Last one"));
+    const bar=el("div","bar"),bi=el("div");bi.id="ptB_"+p.id;bi.style.width=(100*(1-s.totRem/pTot(s.steps)))+"%";bar.appendChild(bi);c.appendChild(bar);
+    const r=el("div","mu",mmss(s.totRem)+" left");r.id="ptR_"+p.id;r.style.textAlign="right";c.appendChild(r);
+    const r2=el("div","row2 ic"),[pz,so,dn]=[[s.pz?"▶":"⏸",s.pz?"Resume":"Pause",()=>ptPause(p)],["■","Stop (counts nothing)",()=>ptStop(p)],["✓","Done with this one, next",()=>ptNext(p)]].map(([i,t,f])=>{const b=el("button","btn alt",i);b.title=t;b.setAttribute("aria-label",t);b.onclick=f;r2.appendChild(b);return b;});c.appendChild(r2);}
+  m.appendChild(c);}
+function render(){tabs();const m=$("main");m.innerHTML="";const t=T();
+  for(const b of t.blocks){if(b.type==="mood")moodB(m);else if(b.type==="moves")movesB(m);else if(b.type==="pt"&&C.pts){const p=PM(b.m||"ex");if(p&&!(b.todo&&pDone(p)>=1&&pst(p).ph==="ready"))ptB(m,p);}   // todo: shown only until done today
+    else if(b.type==="list")listB(m,b,b.key,(phase==="ready"||phase==="party")&&!b.opt);}}
+function flagged(id){for(const t of C.tabs)for(const b of t.blocks)if(b.type==="list"){const st=S.t[b.key]||{};for(const[x,k]of pairs(b))if(x.id===id)return!!st[k];}return false;}
+function envelope(full){const sec=[],cut=s=>full?String(s).slice(0,48):"";
+  const mv=M.filter(x=>S.mv[x.id]);sec.push({n:"Morning moves",done:mv.map(x=>cut(x.n)).filter(Boolean),k:mv.length,of:M.length});
+  for(const p of C.pts||[])sec.push({n:p.n,done:[],k:pDone(p),of:(p.goal&&p.goal.length?p.goal[p.goal.length-1][1]:1)});
+  for(const t of C.tabs)for(const b of t.blocks)if(b.type==="list"){const st=S.t[b.key]||{},[k,of]=count(b,st);
+    if(b.opt&&!k)continue;sec.push({n:b.n,done:pairs(b).filter(([,q])=>st[q]).map(([x])=>cut(nm(x))).filter(Boolean),k:k,of:of});}
+  const ms=mv.reduce((a,x)=>a+(x.t||0),0);
+  return JSON.stringify({v:1,k:"today",s:C.ver||"",a:[],d:DAY,at:pad(new Date().getHours())+":"+pad(new Date().getMinutes()),
+    en:S.mood?S.mood+"/5":null,lvl:level(),full:level()===3,mvmin:Math.round(ms/30)/2,pt:PM("ex")?pDone(PM("ex")):0,ptx:PM("ex")?pIn(PM("ex")):0,st:PM("st")?pDone(PM("st")):0,
+    meds_am:flagged("meds"),meds_pm:flagged("medspm"),sec:sec});}
+function send(){if(phase==="go"||phase==="gap")stop();let s=envelope(true);if(new Blob([s]).size>4000)s=envelope(false);
+  if(inTg&&typeof tg.sendData==="function"&&!(tg.initDataUnsafe&&tg.initDataUnsafe.query_id)){try{tg.sendData(s);return;}catch(e){$("msg").textContent="Couldn't send: "+e.message;return;}}
+  $("msg").textContent="Preview only: open this from the ☀️ Today button in the chat to send.";console.log(s);}
+(async()=>{const d=hashParam("d");try{C=d?await decode(d):demo();}catch(e){$("main").textContent="Couldn't open the card: "+e.message;return;}
+  M=C.moves;CORE=M.filter(m=>m.tier!==2);
+  const[rl,rc]=await cget("rot_"+K());R=rc||rl||{next:0,sets:0};
+  const[dl,dc]=await cget("day_"+K());S=merge(dl&&dl.d===DAY?dl:null,dc&&dc.d===DAY?dc:null)||{d:DAY,mv:{},t:{},mood:null};
+  S.mv=S.mv||{};S.t=S.t||{};for(const p of C.pts||[])pFix(p);
+  if(!S.order||!S.order.every(id=>byId(id))){const n=(R.next||0)%CORE.length;S.order=CORE.slice(n).concat(CORE.slice(0,n)).concat(M.filter(m=>m.tier===2)).map(m=>m.id);}
+  save();$("ttl").textContent=C.title||"Today";$("lbl").textContent=C.label||"";$("send").textContent="Send to "+(C.toName||"coach");
+  $("send").onclick=send;const h=HR<4?HR+24:HR;tab=C.tabs[0].id;for(const t of C.tabs)if(h>=(t.from||0))tab=t.id;render();})();
+</script>
+<!-- sticky-title v7 -->
+<style id="st-style">
+  html { scroll-padding-top: 3.5rem; }
+  #st-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 2147483000;
+    padding: .55rem max(1rem, env(safe-area-inset-left)); box-sizing: border-box;
+    font: 600 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: #fff; color: #111; border-bottom: 1px solid rgba(127,127,127,.25);
+    box-shadow: 0 1px 6px rgba(0,0,0,.08); cursor: pointer; display: none; }
+  #st-bar.st-on { display: block; }
+  @media (prefers-color-scheme: dark) { #st-bar { background: #1c1c1e; color: #eee; } }
+  @media print { #st-bar { display: none; } }
+</style>
+<div id="st-bar" role="presentation" title="Back to top"></div>
+<script id="st-script">
+(function () {
+  var bar = document.getElementById("st-bar");
+  if (!bar) return;
+  var target = document.querySelector("h1") || document.querySelector("header") || document.querySelector("h2");
+  var text = (target && target.textContent.trim()) || document.title || "";
+  text = text.replace(/\s+/g, " ");
+  if (!text) { bar.remove(); return; }
+  bar.textContent = text;
+  // Match the page's own colors (pages set their own light/dark palettes).
+  function paint() {
+    var bg = "", el = document.body;
+    while (el && !bg) {
+      var c = getComputedStyle(el).backgroundColor;
+      if (c && c !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(c)) bg = c;
+      el = el === document.body ? document.documentElement : null;
+    }
+    if (bg) { bar.style.background = bg; bar.style.color = getComputedStyle(document.body).color; }
+  }
+  paint();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", paint);
+  }
+  bar.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: "smooth" }); });
+  // Shown whenever the page's own title is off-screen (scrolled past, or
+  // below the fold under a contents list) so a title is always visible.
+  function offscreen() {
+    if (!target) return window.scrollY > 40;
+    var r = target.getBoundingClientRect();
+    return r.top < 0 || r.bottom > window.innerHeight;  // not fully on screen
+  }
+  // Title starts below the fold → reserve the bar's height so it never covers
+  // the first lines of the page.
+  if (target && offscreen() && window.scrollY < 8) {
+    bar.classList.add("st-on");
+    document.body.style.paddingTop = (parseFloat(getComputedStyle(document.body).paddingTop) || 0) + bar.offsetHeight + "px";
+  }
+  // The page's own things pinned at the top (sticky headers, tab rows, table
+  // header cells): if one already shows the title, stay hidden; otherwise push
+  // it below this bar so nothing is covered. Shallow scan + table headers only;
+  // sticky elements with top:auto (left-pinned columns) are left alone.
+  var cands = Array.prototype.filter.call(
+    document.querySelectorAll("body>*,body>*>*,body>*>*>*,body>*>*>*>*,thead,thead>tr,th"),
+    function (e) {
+      if (e === bar) return false;
+      var cs = getComputedStyle(e);
+      return cs.position === "fixed" || (cs.position === "sticky" && cs.top !== "auto");
+    });
+  var words = text.toLowerCase().match(/[a-z0-9]{4,}/g) || [];
+  var shifted = [];
+  function carriesTitle(e) {
+    if (target && e.contains(target)) return true;
+    if (!words.length) return false;
+    var t = e.textContent.toLowerCase(), n = 0;
+    words.forEach(function (w) { if (t.indexOf(w) >= 0) n++; });
+    return n / words.length >= 0.6;
+  }
+  function pinnedTop() {
+    var bh = bar.offsetHeight || 0;
+    return cands.filter(function (e) {
+      var r = e.getBoundingClientRect(), lim = shifted.indexOf(e) >= 0 ? bh + 1 : 1;
+      return r.height > 0 && r.height < window.innerHeight * 0.5 && r.top <= lim && r.bottom > 0;
+    });
+  }
+  function update() {
+    var on = offscreen(), pins = cands.length ? pinnedTop() : [];
+    if (on && pins.some(carriesTitle)) on = false;
+    bar.classList.toggle("st-on", on);
+    if (on) {
+      var bh = bar.offsetHeight;
+      pins.forEach(function (e) {
+        if (shifted.indexOf(e) < 0) { e.setAttribute("data-st-top", e.style.top); e.style.top = bh + "px"; shifted.push(e); }
+      });
+    } else if (shifted.length) {
+      shifted.forEach(function (e) { e.style.top = e.getAttribute("data-st-top") || ""; e.removeAttribute("data-st-top"); });
+      shifted = [];
+    }
+  }
+  window.addEventListener("scroll", update, { passive: true });
+  window.addEventListener("resize", update);
+  update();
+})();
+</script>
+<!-- /sticky-title -->
+</body>
+</html>
