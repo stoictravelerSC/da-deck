@@ -157,7 +157,9 @@ button:focus-visible, [tabindex]:focus-visible, textarea:focus-visible, select:f
 .sec h3 { margin: 0 0 4px; font: 700 11px var(--f-mono, ui-monospace, monospace); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
 .sec p, .sec ul { margin: 0; font-size: calc(15px * var(--fs, 1)); line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
 .sec ul { padding-left: 18px; display: grid; gap: 4px; }
-.sec .cmd { display: block; margin-top: 4px; font: 500 12px/1.45 var(--f-mono, ui-monospace, monospace); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; overflow-wrap: anywhere; user-select: all; }
+.installnow { position: relative; z-index: 2; display: block; width: calc(100% - 36px); margin: 0 18px 10px; flex: none; padding: 13px; font-size: 17px; font-weight: 700; }
+.sec .cmdhint { display: block; margin-top: 4px; font: 600 11px/1.3 var(--f-body); color: var(--muted); }
+.sec .cmd { width: 100%; text-align: left; color: inherit; cursor: pointer; display: block; margin-top: 4px; font: 500 12px/1.45 var(--f-mono, ui-monospace, monospace); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; overflow-wrap: anywhere; user-select: all; }
 .dsep { border: 0; border-top: 1px dashed var(--line); margin: 2px 0; width: 100%; }
 .sec.warn h3 { color: var(--later); }
 .home { margin: 0; font-size: 12px; color: var(--faint); }
@@ -394,7 +396,14 @@ function bodyHTML(it, full) {
 // details add the specifics (paths, commands, file names) and the trade-offs/watch-outs: `e`, a list; a "⚠ " item is a trade-off.
 // " · " in o/s starts a new bullet; a `bash …` / `launchctl …` / `touch …` item renders as a copyable command block.
 const CMD = /^(Run in Terminal:\s*|Command:\s*|Kill switch:\s*)?(bash|launchctl|touch)\s/;
-function one(x) { const m = x.match(CMD); return m ? `${m[1] ? esc(m[1]) : ""}<code class="cmd">${esc(x.slice((m[1] || "").length))}</code>` : esc(x); }
+function one(x) { const m = x.match(CMD); return m ? `${m[1] ? esc(m[1]) : ""}<button class="cmd" type="button" data-copy="${esc(x.slice((m[1] || "").length))}"><code>${esc(x.slice((m[1] || "").length))}</code><span class="cmdhint">Tap to copy</span></button>` : esc(x); }
+function copyText(t) {
+  const fallback = () => { const a = document.createElement("textarea"); a.value = t; a.style.cssText = "position:fixed;opacity:0;font-size:16px"; document.body.appendChild(a); a.select(); a.setSelectionRange(0, t.length); let done = false; try { done = document.execCommand("copy"); } catch (e) {} a.remove(); toast(done ? "Copied" : "Couldn't copy here. Tek can send it as a message."); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => toast("Copied"), fallback); else fallback();
+}
+// Install now as a button: runs right away (send() flushes the answers), no second press of Done. Swipes stay batched, with Undo.
+function installNow(card) { decide("y", card, 0, 0); setTimeout(send, 260); }
+const isInstaller = it => it.k === "installer" && String(it.i).startsWith("installer-");
 function bullets(s) {
   const parts = (Array.isArray(s) ? s : String(s).split(/\s+·\s+/)).map(x => x.trim()).filter(Boolean);
   return parts.length > 1 ? `<ul>${parts.map(x => `<li>${one(x)}</li>`).join("")}</ul>` : `<p>${one(parts[0] || "")}</p>`;
@@ -422,6 +431,7 @@ function cardHTML(it, pos) {
     <div class="band"></div>
     <div class="body">${bodyHTML(it, false)}</div>
     <div class="fade">Tap to read all</div>
+    ${isInstaller(it) ? `<button class="btn primary installnow" type="button">▶ ${esc(yl)}</button>` : ""}
     <div class="hints"><span class="l"${nc}>← <b>${esc(nl)}</b></span><span class="u">tap for details</span><span class="r"><b>${esc(yl)}</b> →</span></div>
   </div>`;
 }
@@ -464,7 +474,7 @@ function render() {
     S.querySelectorAll(".card").forEach((c, idx, all) => {
       const pos = all.length - 1 - idx;
       if (pos) { c.style.transform = "translateY(7px) scale(.97)"; c.style.opacity = .7; c.setAttribute("aria-hidden", "true"); }
-      else { fit(c); bindSwipe(c, { onTap: openMore }); }
+      else { fit(c); bindSwipe(c, { onTap: openMore }); const ib = c.querySelector(".installnow"); if (ib) ib.onclick = () => installNow(c); }
     });
   }
   $("stampLayer").innerHTML = q.length ? stamps(q[0]) : "";
@@ -559,7 +569,8 @@ function openMore() {
   const card = W.querySelector(".card");
   bindSwipe(card, { scroller: W.querySelector(".dscroll"), onTap: () => closeMore() });
   W.onclick = e => { if (e.target === W) closeMore(); };
-  W.querySelectorAll(".choice").forEach(b => b.onclick = () => decide(b.dataset.c, card, 0, 0, b.dataset.v ? +b.dataset.v : undefined));
+  W.querySelectorAll(".choice").forEach(b => b.onclick = () => b.dataset.c === "y" && isInstaller(it) ? installNow(card) : decide(b.dataset.c, card, 0, 0, b.dataset.v ? +b.dataset.v : undefined));
+  W.querySelectorAll(".cmd").forEach(b => b.onclick = () => copyText(b.dataset.copy));
   $("sendReply").onclick = () => { const t = $("reply").value.trim(); if (!t) { $("reply").focus(); return; } decide("t", card, 0, 0, undefined, t); };
   if (inTg && tg.BackButton && can("6.1")) { backFn = () => closeMore(); tg.BackButton.show(); tg.BackButton.onClick(backFn); }
 }
@@ -659,5 +670,104 @@ async function boot() {
 }
 boot();
 </script>
+<!-- sticky-title v7 -->
+<style id="st-style">
+  html { scroll-padding-top: 3.5rem; }
+  #st-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 2147483000;
+    padding: .55rem max(1rem, env(safe-area-inset-left)); box-sizing: border-box;
+    font: 600 15px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: #fff; color: #111; border-bottom: 1px solid rgba(127,127,127,.25);
+    box-shadow: 0 1px 6px rgba(0,0,0,.08); cursor: pointer; display: none; }
+  #st-bar.st-on { display: block; }
+  @media (prefers-color-scheme: dark) { #st-bar { background: #1c1c1e; color: #eee; } }
+  @media print { #st-bar { display: none; } }
+</style>
+<div id="st-bar" role="presentation" title="Back to top"></div>
+<script id="st-script">
+(function () {
+  var bar = document.getElementById("st-bar");
+  if (!bar) return;
+  var target = document.querySelector("h1") || document.querySelector("header") || document.querySelector("h2");
+  var text = (target && target.textContent.trim()) || document.title || "";
+  text = text.replace(/\s+/g, " ");
+  if (!text) { bar.remove(); return; }
+  bar.textContent = text;
+  // Match the page's own colors (pages set their own light/dark palettes).
+  function paint() {
+    var bg = "", el = document.body;
+    while (el && !bg) {
+      var c = getComputedStyle(el).backgroundColor;
+      if (c && c !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(c)) bg = c;
+      el = el === document.body ? document.documentElement : null;
+    }
+    if (bg) { bar.style.background = bg; bar.style.color = getComputedStyle(document.body).color; }
+  }
+  paint();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", paint);
+  }
+  bar.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: "smooth" }); });
+  // Shown whenever the page's own title is off-screen (scrolled past, or
+  // below the fold under a contents list) so a title is always visible.
+  function offscreen() {
+    if (!target) return window.scrollY > 40;
+    var r = target.getBoundingClientRect();
+    return r.top < 0 || r.bottom > window.innerHeight;  // not fully on screen
+  }
+  // Title starts below the fold → reserve the bar's height so it never covers
+  // the first lines of the page.
+  if (target && offscreen() && window.scrollY < 8) {
+    bar.classList.add("st-on");
+    document.body.style.paddingTop = (parseFloat(getComputedStyle(document.body).paddingTop) || 0) + bar.offsetHeight + "px";
+  }
+  // The page's own things pinned at the top (sticky headers, tab rows, table
+  // header cells): if one already shows the title, stay hidden; otherwise push
+  // it below this bar so nothing is covered. Shallow scan + table headers only;
+  // sticky elements with top:auto (left-pinned columns) are left alone.
+  var cands = Array.prototype.filter.call(
+    document.querySelectorAll("body>*,body>*>*,body>*>*>*,body>*>*>*>*,thead,thead>tr,th"),
+    function (e) {
+      if (e === bar) return false;
+      var cs = getComputedStyle(e);
+      return cs.position === "fixed" || (cs.position === "sticky" && cs.top !== "auto");
+    });
+  var words = text.toLowerCase().match(/[a-z0-9]{4,}/g) || [];
+  var shifted = [];
+  function carriesTitle(e) {
+    if (target && e.contains(target)) return true;
+    if (!words.length) return false;
+    var t = e.textContent.toLowerCase(), n = 0;
+    words.forEach(function (w) { if (t.indexOf(w) >= 0) n++; });
+    return n / words.length >= 0.6;
+  }
+  function pinnedTop() {
+    var bh = bar.offsetHeight || 0;
+    return cands.filter(function (e) {
+      var r = e.getBoundingClientRect(), lim = shifted.indexOf(e) >= 0 ? bh + 1 : 1;
+      return r.height > 0 && r.height < window.innerHeight * 0.5 && r.top <= lim && r.bottom > 0;
+    });
+  }
+  function update() {
+    var on = offscreen(), pins = cands.length ? pinnedTop() : [];
+    if (on && pins.some(carriesTitle)) on = false;
+    bar.classList.toggle("st-on", on);
+    if (on) {
+      var bh = bar.offsetHeight;
+      pins.forEach(function (e) {
+        if (shifted.indexOf(e) < 0) { e.setAttribute("data-st-top", e.style.top); e.style.top = bh + "px"; shifted.push(e); }
+      });
+    } else if (shifted.length) {
+      shifted.forEach(function (e) { e.style.top = e.getAttribute("data-st-top") || ""; e.removeAttribute("data-st-top"); });
+      shifted = [];
+    }
+  }
+  window.addEventListener("scroll", update, { passive: true });
+  window.addEventListener("resize", update);
+  update();
+})();
+</script>
+<!-- /sticky-title -->
 </body>
 </html>
