@@ -402,7 +402,8 @@ function copyText(t) {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => toast("Copied"), fallback); else fallback();
 }
 // Install now as a button: runs right away (send() flushes the answers), no second press of Done. Swipes stay batched, with Undo.
-function installNow(card) { decide("y", card, 0, 0); setTimeout(send, 260); }
+let installing = false;   // a second tap in the 260 ms before sending must not answer the next card
+function installNow(card) { if (installing) return; decide("y", card, 0, 0); installing = true; setTimeout(() => { send(); installing = false; }, 260); }
 const isInstaller = it => it.k === "installer" && String(it.i).startsWith("installer-");
 function bullets(s) {
   const parts = (Array.isArray(s) ? s : String(s).split(/\s+·\s+/)).map(x => x.trim()).filter(Boolean);
@@ -527,6 +528,7 @@ function bindSwipe(card, opt) {
 }
 function topCard() { return $("stack").querySelector(".card:not(.behind)"); }
 function decide(c, card, dx, dy, v, text) {
+  if (installing) return;
   const q = queue(); if (!q.length) return; const it = q[0];
   const inDetail = !$("dwrap").hidden; card = card || (inDetail ? $("dwrap").querySelector(".card") : topCard());
   const left = c === "left"; if (left) { const L = leftOf(it); c = L.c; v = L.v; }
@@ -570,7 +572,6 @@ function openMore() {
   bindSwipe(card, { scroller: W.querySelector(".dscroll"), onTap: () => closeMore() });
   W.onclick = e => { if (e.target === W) closeMore(); };
   W.querySelectorAll(".choice").forEach(b => b.onclick = () => b.dataset.c === "y" && isInstaller(it) ? installNow(card) : decide(b.dataset.c, card, 0, 0, b.dataset.v ? +b.dataset.v : undefined));
-  W.querySelectorAll(".cmd").forEach(b => b.onclick = () => copyText(b.dataset.copy));
   $("sendReply").onclick = () => { const t = $("reply").value.trim(); if (!t) { $("reply").focus(); return; } decide("t", card, 0, 0, undefined, t); };
   if (inTg && tg.BackButton && can("6.1")) { backFn = () => closeMore(); tg.BackButton.show(); tg.BackButton.onClick(backFn); }
 }
@@ -651,6 +652,7 @@ async function boot() {
     }
     else { answers = keep; if (answers.length) toast(`Restored ${answers.length} unsent answer${answers.length > 1 ? "s" : ""}`); }
   }
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".cmd"); if (b) copyText(b.dataset.copy); });
   $("doneBtn").onclick = send;
   $("pickSel").onchange = e => { tab = e.target.value; render(); };
   $("bYes").onclick = () => decide("y"); $("bNo").onclick = () => decide("left");
