@@ -401,9 +401,9 @@ function copyText(t) {
   const fallback = () => { const a = document.createElement("textarea"); a.value = t; a.style.cssText = "position:fixed;opacity:0;font-size:16px"; document.body.appendChild(a); a.select(); a.setSelectionRange(0, t.length); let done = false; try { done = document.execCommand("copy"); } catch (e) {} a.remove(); toast(done ? "Copied" : "Couldn't copy here. Tek can send it as a message."); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => toast("Copied"), fallback); else fallback();
 }
-// Install now as a button: runs right away (send() flushes the answers), no second press of Done. Swipes stay batched, with Undo.
-let installing = false;   // a second tap in the 260 ms before sending must not answer the next card
-function installNow(card) { if (installing) return; decide("y", card, 0, 0); installing = true; setTimeout(() => { send(); installing = false; }, 260); }
+// Install now as a button: queues like any answer, and Done sends the queue (Telegram closes the deck on every send, CEO 2026-11-03: keep it open).
+let installing = false;   // a double-tap must not also answer the next card
+function installNow(card) { if (installing) return; decide("y", card, 0, 0); installing = true; toast("Queued. It runs when you press Done"); setTimeout(() => { installing = false; }, 260); }
 const isInstaller = it => it.k === "installer" && String(it.i).startsWith("installer-");
 function bullets(s) {
   const parts = (Array.isArray(s) ? s : String(s).split(/\s+·\s+/)).map(x => x.trim()).filter(Boolean);
