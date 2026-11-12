@@ -55,7 +55,7 @@ a.lnk{color:var(--ac)}
   Data in: everything personal rides in the link after "#" (d = base64url raw-deflate JSON), which browsers never send to the server.
   Data out: Telegram.WebApp.sendData (≤4096 bytes; works only when opened from a reply-keyboard button) → the DA poller →
   da-answer.py `deck` (k:"today") → logged locally + a short receipt in chat. Each Send carries the whole day so far.
-  v12: a morning check (block "check": energy, mood, sleep, night oxygen, drinks, gummy, waking oxygen), a 2 pm check (block "noon") and the day's coin (block "coin", drawn from C.tests) ride in the envelope as `mc`.
+  v12: "check" blocks (quick questions; all wording comes from the content) and "coin" blocks (the day's draw from a fixed sequence in C.tests); their answers ride in the envelope as `mc`.
   Tabs follow the time of day; PT modules (C.pts: exercises "ex", stretches "st"; each one tap = a timed auto-run of the whole sequence, a finished run = 1 set/round, counted across tabs) sit where a tab's {type:"pt",m} block puts them. Item photos (img:[start,end]) flip every 1.2 s. State: the day (4 am to 4 am) and the move rotation live in Telegram CloudStorage (shared by phone + Mac) with a localStorage copy.
 -->
 <header><h1 id="ttl">Today</h1><span class="tag" id="lbl">SAMPLE v12</span></header>
@@ -119,40 +119,36 @@ function finishMove(){const m=byId(cur),before=level();S.mv[m.id]=1;
   beeps(3);haptic("heavy");cur=id;phase="gap";left=C.gap||8;run();}
 function stop(){clearInterval(tick);phase="ready";render();}
 function skip(){clearInterval(tick);const i=S.order.indexOf(cur);const rest=S.order.slice(i+1).concat(S.order.slice(0,i)).find(id=>!S.mv[id]);if(rest)go(rest);else stop();}
-// v12 morning check + 2 pm check + coin. All answers live in S.mc {e,m,s,o,d,g,w,e2,wk,big,ill,away,ok}; ok = sent once (the block then folds to one line).
+// v12 check blocks + coin. Every label comes from the content (nothing personal in this file). Answers live in S.mc {key: value}; S.mc.ok = sent once (a block with `need` then folds to one line).
+// Block {type:"check", id, n, q:[{k, n, sub, ten | step+def | opts:[[label,value]] | num:placeholder, warn:[below, text], week}], need:[keys], sum, hint, todo}.
 const MC=()=>S.mc=S.mc||{},TEN=[1,2,3,4,5,6,7,8,9,10].map(i=>[String(i),i]),fmtH=v=>Math.floor(v)+(v%1?"½":"")+" h";
-function pick(c,label,opts,key,cls){const q=el("div","ql");q.innerHTML=label;c.appendChild(q);const r=el("div",cls||"mood tall");
+function pick(c,opts,key,cls){const r=el("div",cls||"mood tall");
   for(const[t,v]of opts){const b=el("button",MC()[key]===v?"on":"",t);b.onclick=()=>{const m=MC();if(m[key]===v)delete m[key];else m[key]=v;save();haptic();render();};r.appendChild(b);}c.appendChild(r);}
-function numIn(c,key,ph){const i=el("input","num");i.type="number";i.inputMode="numeric";i.placeholder=ph;if(MC()[key]!=null)i.value=MC()[key];const w=el("div","warn");
-  const chk=()=>{const v=parseInt(i.value,10),m=MC();if(v>=50&&v<=100)m[key]=v;else delete m[key];w.textContent=m[key]<88?"Under 88: worth telling your pulmonologist.":"";save();};i.oninput=chk;c.appendChild(i);c.appendChild(w);if(MC()[key]<88)w.textContent="Under 88: worth telling your pulmonologist.";}
-function checkB(m){const c=el("div","card"),x=MC();
-  if(x.ok&&!OPEN.mc){const r=el("div","sum");r.appendChild(el("div","","Morning check ✓  energy "+x.e+" · mood "+x.m));const b=el("button","qk","Edit");b.onclick=()=>{OPEN.mc=1;render();};r.appendChild(b);c.appendChild(r);m.appendChild(c);return;}
-  c.appendChild(el("div","gh","Morning check · 20 seconds"));
-  pick(c,"Energy right now <small>1 flat · 10 great</small>",TEN,"e","g5");pick(c,"Mood",TEN,"m","g5");
-  const q=el("div","ql","Hours slept");c.appendChild(q);const r=el("div","mood tall"),v=x.s!=null?x.s:(R.sl||7),set=n=>{x.s=Math.max(0,Math.min(14,n));R.sl=x.s;save();saveR();haptic();render();};
-  [["−",()=>set(v-.5),""],[fmtH(v),()=>{if(x.s!=null){delete x.s;save();render();}else set(v);},x.s!=null?"on":"dim"],["+",()=>set(v+.5),""]].forEach(([t,f,k])=>{const b=el("button",k,t);b.onclick=f;r.appendChild(b);});c.appendChild(r);
-  pick(c,"Oxygen last night",[["On","on"],["Part","part"],["Off","off"]],"o");
-  pick(c,"Drinks last evening",[["0",0],["⅓",.33],["½",.5],["1",1],["2",2],["3+",3]],"d");
-  pick(c,"Sleep gummy",[["Yes",1],["No",0]],"g");
-  c.appendChild(el("div","ql","Waking oxygen reading"));numIn(c,"w","optional, e.g. 94");
-  c.appendChild(el("div","mu",x.e&&x.m?"That's it. Press Send to "+(C.toName||"coach")+" below.":"Energy and mood are the two that matter most."));m.appendChild(c);}
-const dAdd=(iso,n)=>{const d=new Date(iso+"T12:00:00");d.setDate(d.getDate()+n);return d;},dayN=st=>st?Math.round((new Date(DAY+"T12:00:00")-new Date(st+"T12:00:00"))/864e5)+1:0;
-function noonB(m){const c=el("div","card"),t=C.tests||{},n=dayN(t.start),wk=!t.start||n<=(t.measure_days||7);c.appendChild(el("div","gh","2 pm check"));pick(c,"Energy right now",TEN,"e2","g5");
-  if(wk){c.appendChild(el("div","ql","Lowest oxygen reading on today's walk"));numIn(c,"wk","optional, e.g. 91");}
-  else{const d=el("details");d.style.cssText="padding:0;margin:10px 0 0;background:none";d.open=!!OPEN.wk||MC().wk!=null;d.addEventListener("toggle",()=>{OPEN.wk=d.open;});const s=el("summary");s.appendChild(el("span","mu","Walk oxygen reading · optional"));d.appendChild(s);numIn(d,"wk","lowest on today's walk");c.appendChild(d);}
-  m.appendChild(c);}
+function numIn(c,q){const key=q.k,i=el("input","num");i.type="number";i.inputMode="numeric";i.placeholder=q.num;if(MC()[key]!=null)i.value=MC()[key];const w=el("div","warn"),wt=()=>q.warn&&MC()[key]<q.warn[0]?q.warn[1]:"";
+  i.oninput=()=>{const v=parseInt(i.value,10),m=MC();if(v>=50&&v<=100)m[key]=v;else delete m[key];w.textContent=wt();save();};c.appendChild(i);c.appendChild(w);w.textContent=wt();}
+function qRow(c,q){const x=MC(),l=el("div","ql",q.n);if(q.sub){l.appendChild(document.createTextNode(" "));l.appendChild(el("small","",q.sub));}c.appendChild(l);
+  if(q.ten)pick(c,TEN,q.k,"g5");else if(q.opts)pick(c,q.opts,q.k);else if(q.num)numIn(c,q);
+  else if(q.step){const r=el("div","mood tall"),v=x[q.k]!=null?x[q.k]:(R["l_"+q.k]||q.def||7),set=n=>{x[q.k]=Math.max(0,Math.min(14,n));R["l_"+q.k]=x[q.k];save();saveR();haptic();render();};
+    [["−",()=>set(v-q.step),""],[fmtH(v),()=>{if(x[q.k]!=null){delete x[q.k];save();render();}else set(v);},x[q.k]!=null?"on":"dim"],["+",()=>set(v+q.step),""]].forEach(([t,f,k])=>{const b=el("button",k,t);b.onclick=f;r.appendChild(b);});c.appendChild(r);}}
+const dayN=st=>st?Math.round((new Date(DAY+"T12:00:00")-new Date(st+"T12:00:00"))/864e5)+1:0;
+const need=b=>(b.need||[]).every(k=>MC()[k]!=null);
+function checkB(m,b){const c=el("div","card"),x=MC(),id="c_"+(b.id||"am"),t=C.tests||{};
+  if(b.need&&x.ok&&need(b)&&!OPEN[id]){const r=el("div","sum");r.appendChild(el("div","",b.n.split(" · ")[0]+" ✓  "+(b.sum||"").replace(/\{(\w+)\}/g,(_,k)=>x[k])));const e=el("button","qk","Edit");e.onclick=()=>{OPEN[id]=1;render();};r.appendChild(e);c.appendChild(r);m.appendChild(c);return;}
+  c.appendChild(el("div","gh",b.n));
+  for(const q of b.q){if(q.week&&t.start&&dayN(t.start)>(t.measure_days||7)){const d=el("details");d.style.cssText="padding:0;margin:10px 0 0;background:none";d.open=!!OPEN[q.k]||x[q.k]!=null;d.addEventListener("toggle",()=>{OPEN[q.k]=d.open;});
+      const s=el("summary");s.appendChild(el("span","mu",q.n+" · optional"));d.appendChild(s);numIn(d,q);c.appendChild(d);}else qRow(c,q);}
+  if(b.need)c.appendChild(el("div","mu",need(b)?"That's it. Press Send to "+(C.toName||"coach")+" below.":b.hint||""));m.appendChild(c);}
 function tog(c,label,key){const x=MC(),r=el("div","it"+(x[key]?" on":""));r.appendChild(el("div","box",x[key]?"✓":""));r.appendChild(el("span","",label));r.onclick=()=>{if(x[key])delete x[key];else x[key]=1;save();haptic();render();};c.appendChild(r);}
-function coinB(m,b){const t=C.tests||{},c=el("div","card");
-  if(b.k==="walk"){if(!t.walk_on)return;const n=dayN(t.walk_start),q=(t.wseq||"")[n-1];if(n<1||!q)return;c.appendChild(el("div","gh","Morning-walk coin · day "+n+" of "+t.wseq.length));
-    c.appendChild(el("div","big",q==="w"?"This morning: 15 minutes outside":"This morning: whatever you'd do"));c.appendChild(el("div","mu",q==="w"?"Within an hour of waking, however you feel.":"No rule today."));m.appendChild(c);return;}
-  const n=dayN(t.start),q=(t.dseq||"")[n-1],h=HR<4?HR+24:HR;
-  if(!t.start){c.appendChild(el("div","gh","Evening-drink coin · not started"));c.appendChild(el("div","mu","Starts the morning after you approve v12. From 2 pm each day this will say either “Tonight: no drink” or “Tonight: your usual one”, for 42 days."));}
-  else if(n<1){c.appendChild(el("div","gh","Evening-drink coin"));c.appendChild(el("div","mu","Starts tomorrow."));}
-  else if(q){c.appendChild(el("div","gh","Evening-drink coin · day "+n+" of "+t.dseq.length));
-    if(h<14)c.appendChild(el("div","mu","Tonight's flip shows from 2 pm."));else{c.appendChild(el("div","big",q==="n"?"Tonight: no drink":"Tonight: your usual one"));c.appendChild(el("div","mu","Nothing else changes on purpose."));}}
-  else c.appendChild(el("div","gh","Today"));
-  tog(c,"Big day today (3+ hours out, or 2+ events)","big");tog(c,"Sick today","ill");tog(c,"Away overnight tonight","away");m.appendChild(c);}
-function mcOut(){const x=MC(),o={};for(const k of["e","m","s","o","d","g","w","e2","wk","big","ill","away"])if(x[k]!=null)o[k]=x[k];return Object.keys(o).length?o:null;}
+// Block {type:"coin", k, n, a, b, as, bs, pre, from, ticks:[[key,label]]}: today's draw from C.tests[k+"seq"] (one letter a day; the first letter of the sequence's "a" side is given as `al`), day 1 = C.tests[k+"start"]; switched off unless C.tests[k+"on"].
+function coinB(m,b){const t=C.tests||{},k=b.k||"d",c=el("div","card"),st=t[k+"start"],seq=t[k+"seq"]||"",n=dayN(st),q=seq[n-1],h=HR<4?HR+24:HR;
+  if(!t[k+"on"])return;
+  if(!st){if(!b.pre)return;c.appendChild(el("div","gh",b.n+" · not started"));c.appendChild(el("div","mu",b.pre));}
+  else if(n<1){c.appendChild(el("div","gh",b.n));c.appendChild(el("div","mu","Starts tomorrow."));}
+  else if(q){c.appendChild(el("div","gh",b.n+" · day "+n+" of "+seq.length));
+    if(b.from&&h<b.from)c.appendChild(el("div","mu","Today's flip shows from "+(b.from>12?b.from-12+" pm":b.from+" am")+"."));else{c.appendChild(el("div","big",q===b.al?b.a:b.b));const sub=q===b.al?b.as:b.bs;if(sub)c.appendChild(el("div","mu",sub));}}
+  else if(!b.ticks)return;else c.appendChild(el("div","gh","Today"));
+  for(const[key,label]of b.ticks||[])tog(c,label,key);m.appendChild(c);}
+function mcOut(){const x=MC(),o={};for(const k of Object.keys(x))if(k!=="ok"&&x[k]!=null)o[k]=x[k];return Object.keys(o).length?o:null;}
 function moodB(m){const f=el("div","card");f.appendChild(el("div","","How do you feel?"));const r=el("div","mood");
   for(let i=1;i<=5;i++){const b=el("button",S.mood===i?"on":"",String(i));b.onclick=()=>{S.mood=S.mood===i?null:i;save();haptic();render();};r.appendChild(b);}
   f.appendChild(r);m.appendChild(f);}
@@ -250,7 +246,7 @@ function ptB(m,p){const n=pN(p),sd=pDone(p),s=pst(p),u=p.unit||"set",U=u[0].toUp
     const r2=el("div","row2 ic"),[pz,so,dn]=[[s.pz?"▶":"⏸",s.pz?"Resume":"Pause",()=>ptPause(p)],["■","Stop (counts nothing)",()=>ptStop(p)],["✓","Done with this one, next",()=>ptNext(p)]].map(([i,t,f])=>{const b=el("button","btn alt",i);b.title=t;b.setAttribute("aria-label",t);b.onclick=f;r2.appendChild(b);return b;});c.appendChild(r2);}
   m.appendChild(c);}
 function render(){tabs();const m=$("main");m.innerHTML="";const t=T();
-  for(const b of t.blocks){if(b.type==="mood")moodB(m);else if(b.type==="check"){if(!(b.todo&&MC().ok))checkB(m);}else if(b.type==="noon")noonB(m);else if(b.type==="coin")coinB(m,b);else if(b.type==="moves")movesB(m);else if(b.type==="pt"&&C.pts){const p=PM(b.m||"ex");if(p&&!(b.todo&&pDone(p)>=1&&pst(p).ph==="ready"))ptB(m,p);}   // todo: shown only until done today
+  for(const b of t.blocks){if(b.type==="mood")moodB(m);else if(b.type==="check"){if(!(b.todo&&MC().ok&&need(b)))checkB(m,b);}else if(b.type==="coin")coinB(m,b);else if(b.type==="moves")movesB(m);else if(b.type==="pt"&&C.pts){const p=PM(b.m||"ex");if(p&&!(b.todo&&pDone(p)>=1&&pst(p).ph==="ready"))ptB(m,p);}   // todo: shown only until done today
     else if(b.type==="list")listB(m,b,b.key,(phase==="ready"||phase==="party")&&!b.opt);}}
 function flagged(id){for(const t of C.tabs)for(const b of t.blocks)if(b.type==="list"){const st=S.t[b.key]||{};for(const[x,k]of pairs(b))if(x.id===id)return!!st[k];}return false;}
 function envelope(full){const sec=[],cut=s=>full?String(s).slice(0,48):"";
@@ -262,7 +258,7 @@ function envelope(full){const sec=[],cut=s=>full?String(s).slice(0,48):"";
   return JSON.stringify({v:1,k:"today",s:C.ver||"",a:[],d:DAY,at:pad(new Date().getHours())+":"+pad(new Date().getMinutes()),
     en:S.mood?S.mood+"/5":null,lvl:level(),full:level()===3,mvmin:Math.round(ms/30)/2,pt:PM("ex")?pDone(PM("ex")):0,ptx:PM("ex")?pIn(PM("ex")):0,st:PM("st")?pDone(PM("st")):0,
     meds_am:flagged("meds"),meds_pm:flagged("medspm"),mc:mcOut(),sec:sec});}
-function send(){if(phase==="go"||phase==="gap")stop();if(MC().e&&MC().m){MC().ok=1;delete OPEN.mc;save();}let s=envelope(true);if(new Blob([s]).size>4000)s=envelope(false);
+function send(){if(phase==="go"||phase==="gap")stop();if(Object.keys(MC()).length){MC().ok=1;for(const k of Object.keys(OPEN))if(k.startsWith("c_"))delete OPEN[k];save();}let s=envelope(true);if(new Blob([s]).size>4000)s=envelope(false);
   if(inTg&&typeof tg.sendData==="function"&&!(tg.initDataUnsafe&&tg.initDataUnsafe.query_id)){try{tg.sendData(s);return;}catch(e){$("msg").textContent="Couldn't send: "+e.message;return;}}
   $("msg").textContent="Preview only: open this from the ☀️ Today button in the chat to send.";window.__sent=s;console.log(s);render();}
 (async()=>{const d=hashParam("d");try{C=d?await decode(d):demo();}catch(e){$("main").textContent="Couldn't open the card: "+e.message;return;}
